@@ -1,0 +1,6 @@
+* text=auto eol=lf
+
+# Not shipped in the Composer dist archive
+/.gitattributes export-ignore
+/.gitignore     export-ignore
+/examples       export-ignore
