@@ -4,3 +4,4 @@
 /examples/*.pdf
 /.phpunit.cache/
 /.phpunit.result.cache
+/examples/*.json
