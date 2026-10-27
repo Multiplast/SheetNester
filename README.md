@@ -103,6 +103,22 @@ Se zadaným `seed` a bez `timeBudgetMs` dává stejný vstup vždy stejný výsl
 `timeBudgetMs` chrání před `max_execution_time` na hostingu bez `set_time_limit`;
 pokud se limit vyčerpá (`time_budget_hit: true`), výsledek závisí na rychlosti stroje.
 
+## Testy
+
+```sh
+composer install
+composer test            # = vendor/bin/phpunit
+```
+
+Sada obsahuje golden testy (úplný výstup `calculate()` a SVG náhledy referenčního zadání),
+property-based kontrolu invariantů na náhodných zadáních (dílce uvnitř desky, bez překryvů,
+mezery na prořez, zachování všech dílců, limity skladu, součty, zbytky jen ve volné ploše),
+testy jednotlivých funkcí a smoke test PDF (bez mPDF se přeskočí). CI
+(`.github/workflows/ci.yml`) spouští sadu na PHP 8.0–8.5.
+
+mPDF vyžaduje rozšíření `gd`; pokud ho CLI nemá načtené (typicky XAMPP), použijte
+`composer install --ignore-platform-req=ext-gd` a `php -d extension=gd vendor/bin/phpunit`.
+
 ## Vydání nové verze
 
 Verze se řídí [SemVer](https://semver.org/lang/cs/) a vydávají se git tagem:
@@ -115,7 +131,10 @@ V projektu pak `composer update multiplast/sheet-nester`. Veřejné API tvoří
 `SheetNester`, `SheetNesterPdf` a tvar výsledného pole; pomocné třídy
 (`Piece`, `StockFormat`, `Sheet`, `FreeRect`, `PlacedPiece`) jsou `@internal`.
 
-**Kontrola před vydáním:** změna, která nemá měnit chování, musí na golden datasetu
-dát identické rozmístění. Golden dataset je výchozí předvyplnění v Bridge
-`/admin/nesting/` (30 formátů, seed 42); `min_waste` s `restarts: 200` bez časového
-limitu dává 18 desek / 101,92 m².
+**Kontrola před vydáním:** `composer test` musí projít. Golden testy
+(`tests/GoldenTest.php`) porovnávají kompletní výstup `calculate()` na referenčním zadání
+s fixtures v `tests/fixtures/`; změna, která nemá měnit chování, je nesmí změnit.
+Referenční zadání je výchozí předvyplnění v Bridge `/admin/nesting/` (30 formátů, seed 42) –
+`min_waste` s `restarts: 200` bez časového limitu dává 18 desek / 101,92 m². Záměrnou změnu
+chování potvrďte přegenerováním fixtures (`UPDATE_GOLDEN=1 vendor/bin/phpunit --filter GoldenTest`)
+a kontrolou diffu.

@@ -1,5 +1,12 @@
 # Changelog
 
+## Nevydáno
+
+- Testovací sada (PHPUnit 9.6–12, PHP 8.0+, `composer test`): golden fixtures referenčního
+  zadání pro všechny strategie, prořez, volnou rotaci, režimy zbytků a neumístěné dílce;
+  property-based invarianty na náhodných zadáních; testy jednotlivých funkcí; smoke test PDF.
+- CI přes GitHub Actions na PHP 8.0–8.5.
+
 ## 1.0.1 – 2026-10-27
 
 - Minimální verze PHP snížena z 8.1 na 8.0. Kód nepoužívá žádnou syntaxi, funkci ani třídu

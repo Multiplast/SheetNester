@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Kept minimal on purpose so the same file is valid for PHPUnit 9.6 (PHP 8.0) through 12. -->
+<phpunit bootstrap="vendor/autoload.php"
+         colors="true"
+         cacheResult="false">
+    <testsuites>
+        <testsuite name="SheetNester">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>

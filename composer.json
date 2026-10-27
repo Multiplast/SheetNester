@@ -14,7 +14,8 @@
         "php": ">=8.0"
     },
     "require-dev": {
-        "mpdf/mpdf": "^8.1"
+        "mpdf/mpdf": "^8.1",
+        "phpunit/phpunit": "^9.6 || ^10.5 || ^11.5 || ^12.0"
     },
     "suggest": {
         "mpdf/mpdf": "Required by SheetNesterPdf to render PDF cutting plans (^8.1)."
@@ -26,6 +27,14 @@
         "psr-4": {
             "Multiplast\\SheetNester\\": "src/"
         }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Multiplast\\SheetNester\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
     },
     "config": {
         "sort-packages": true
