@@ -1,141 +1,161 @@
 # SheetNester
 
-2D nesting obdélníkových dílců na skladové formáty desek (polykarbonát apod.):
-guillotine řez, Best Area Fit, lookahead výběr formátu, eliminace a redukce desek,
-značení použitelných zbytků. Výstupem je pole s rozmístěním, SVG náhled desky
-a volitelně PDF nářezový plán (mPDF).
-
-- `Multiplast\SheetNester\SheetNester` – výpočet + `toSvg()`, bez závislostí
-- `Multiplast\SheetNester\SheetNesterPdf` – PDF plán, vyžaduje `mpdf/mpdf`
-
-Požadavky: PHP ≥ 8.0 (determinismus spoléhá na stabilní `usort`, které garantuje PHP od verze 8.0).
-
-## Instalace
-
-Repozitář je soukromý, Composer ho stahuje přímo z GitHubu. Do `composer.json`
-projektu přidejte zdroj:
-
-```json
-"repositories": [
-    { "type": "vcs", "url": "https://github.com/Multiplast/SheetNester.git" }
-]
-```
-
-Na stroji, kde se spouští Composer, jednou nastavte GitHub token
-(fine-grained token s oprávněním *Contents: Read-only* jen na tento repozitář):
-
-```sh
-composer config --global --auth github-oauth.github.com <token>
-```
-
-Pak:
-
-```sh
-composer require multiplast/sheet-nester:^1.0
-```
-
-PDF potřebuje navíc `composer require mpdf/mpdf` (v Bridge už je).
-
-## Použití
+2D nesting of rectangular pieces onto stock sheets – guillotine cuts (panel
+saw), Best Area Fit, lookahead format selection, sheet elimination and format
+reduction, usable-remnant marking. Built for plastic sheet materials
+(polycarbonate, acrylic …), but any rectangular stock works. Pure PHP, no
+dependencies; SVG previews and an optional PDF cutting plan (mPDF).
 
 ```php
-use Multiplast\SheetNester\SheetNester;
-use Multiplast\SheetNester\SheetNesterPdf;
+use Multiplast\SheetNester\{Grain, NestingJob, SheetNester};
+use Multiplast\SheetNester\Options\{Material, Objective, Remnants, Search};
 
-$nester = new SheetNester(
-    kerf: 0,
-    grainDirection: 'vertical',
-    formatStrategy: SheetNester::STRATEGY_MIN_WASTE,
-    restarts: 300,
-    seed: 42,
-    timeBudgetMs: 8000,
-    remnantMode: SheetNester::REMNANT_AUTO,
-    minRemnantSide: 200,
-);
+$job = NestingJob::create(
+        material:  new Material(kerf: 4, grain: Grain::ALONG_HEIGHT),
+        objective: Objective::minWaste(),
+        search:    new Search(restarts: 50, seed: 42, timeBudgetMs: 8000),
+        remnants:  Remnants::auto(minSide: 200),
+    )
+    ->addStock(2100, 6000, quantity: 10)          // width, height [mm], sheets in stock
+    ->addPiece(500, 1000, quantity: 3, label: 'A');
 
-$nester->addStockFormat(6000, 2100, 100);   // šířka, výška [mm], počet kusů skladem
-$nester->addPiece(2200, 900, 22);           // šířka, výška [mm], počet
+$result = (new SheetNester())->solve($job);       // Result\NestingResult
 
-$result = $nester->calculate();
-$svg    = $nester->toSvg(0);                // náhled první desky
-
-$pdf = new SheetNesterPdf($result, ['title' => 'Nářezový plán č. 123', 'material' => 'PC 10 mm']);
-$pdf->save('/cesta/plan.pdf');              // nebo generate() / download() / inline()
+count($result->sheets);                            // sheets used
+$result->materialM2;  $result->utilizationPct;     // totals
+$result->sheets[0]->pieces[0];                     // Placement: x, y, width, height, rotated, label
+$result->unplaced;                                 // UnplacedPieces: width, height, qty, reasonCode, label
 ```
 
-Spustitelné ukázky jsou v `examples/` (`composer install && php examples/basic.php`).
+Requirements: PHP ≥ 8.0 (deterministic results rely on the stable `usort`
+PHP guarantees since 8.0). PDF output needs `mpdf/mpdf` (^8.1).
 
-### Parametry konstruktoru
+## Installation
 
-| Parametr | Výchozí | Význam |
+```sh
+composer require multiplast/sheet-nester
+composer require mpdf/mpdf          # only for Render\PdfReport
+```
+
+Runnable examples: `composer install && php examples/basic.php` and
+`php examples/pdf.php`.
+
+## Coordinates and units
+
+All lengths are millimetres. `width` is the X and `height` the Y dimension of
+both stock sheets and pieces; placements are top-left corners in that system.
+Enter sheets and pieces consistently – e.g. multiwall polycarbonate as
+`2100 × 6000` with the channels along the height.
+
+## Options
+
+### `Material(kerf, grain)`
+
+| Argument | Default | Meaning |
 |---|---|---|
-| `kerf` | – | Prořez pily v mm, přičítá se ke stopě dílce |
-| `grainDirection` | `'none'` | `'horizontal'`, `'vertical'` = zákaz otáčení, `'none'` = dílce lze otočit |
-| `formatStrategy` | `smallest_fit` | viz Strategie |
-| `restarts` | 20 | Počet náhodných pořadí navíc (vícepr. strategie) |
-| `seed` | `null` | Seed RNG; se seedem je výsledek reprodukovatelný |
-| `timeBudgetMs` | `null` | Měkký časový limit; po vyčerpání se další průchody přeskočí |
-| `remnantMode` | `'none'` | `'auto'` (největší volné obdélníky), `'defined'` (formáty z `addRemnantFormat()`) |
-| `minRemnantSide` | 200 | Min. kratší strana zbytku v mm (režim `auto`) |
-| `cutCostM2` | 0.05 | Jen `min_cuts`: kolik m² materiálu „stojí" jeden průjezd pily |
+| `kerf` | `0.0` | Blade kerf in mm, added to the right and bottom of every piece footprint. |
+| `grain` | `Grain::NONE` | Direction of the material's channels / grain: `NONE` (pieces may be rotated by 90°, nothing to seal), `ALONG_WIDTH` (channels along X), `ALONG_HEIGHT` (channels along Y). With channels pieces are never rotated and the seal length counts the two piece edges perpendicular to the channels. Placement does not depend on the axis – `ALONG_WIDTH` and `ALONG_HEIGHT` give the same plan, only the seal length differs. |
 
-### Strategie
+### `Objective` – what the solver minimises
 
-- `smallest_fit` – jeden průchod FFD, nejrychlejší.
-- `min_waste` – kanonické FFD + deterministické portfolio řazení + `restarts` náhodných pořadí; vyhrává nejméně neumístěných, pak nejméně materiálu (m²).
-- `min_cuts` – minimalizuje `materiál_m2 + cutCostM2 × počet_řezů`; může vyměnit trochu materiálu za méně průjezdů pily.
-- `best_remnant` – jako `min_waste`, při shodě materiálu preferuje největší jednolitý zbytek.
+Fewer unplaced pieces always wins first; the objective decides among plans
+that place the same number of pieces.
 
-### Výsledek `calculate()`
+| Factory | Minimises |
+|---|---|
+| `Objective::minWaste()` (default) | material (m²) |
+| `Objective::minCuts(cutCostM2: 0.05)` | `material_m2 + cutCostM2 × saw passes`; ties → shorter cut length. `cutCostM2` is the material-equivalent value of one saw pass in m². Material changes in whole sheets, so values well below one sheet area rarely change the plan – they then only break ties. |
+| `Objective::bestRemnant()` | material; ties → the plan whose largest single empty rectangle is biggest (one big offcut back to stock). |
 
-Hlavní klíče: `sheets` (pro každou desku `stock_width`, `stock_height`,
-`pieces[x, y, width, height, rotated]`, `used_area_pct`, `cuts`, příp. `remnants`),
-`stock_usage`, `unplaced_pieces` (s `reason`), `total_sheets`, `total_material_m2`,
-`utilization_pct`, `total_cuts_count`, `total_cuts_mm`, `total_seal_mm`,
-`total_remnant_m2`, `strategy`, `permutations_tested`, `time_budget_hit`,
-`calculation_time_ms`. Úplný tvar popisuje docblock `SheetNester::calculate()`.
+### `Search(restarts, seed, timeBudgetMs, portfolio)` – how hard to try
 
-Desky jsou ve výsledku seřazené od největšího formátu, stejné formáty jdou za sebou.
+The canonical First Fit Decreasing pass always runs. With `portfolio` (default
+`true`) a handful of deterministic orderings follow (max side / width / height
+/ perimeter descending), then `restarts` (default 20) seeded random shuffles;
+the best plan wins. `Search::singlePass()` runs the FFD pass only – a few
+milliseconds, good for live estimates. `timeBudgetMs` is a soft limit: the FFD
+pass always runs, further orderings are skipped once the budget is spent and
+the best so far is kept (`$result->timeBudgetHit`). With a `seed` and without
+a time budget the same input always gives the same result.
 
-## Determinismus a hosting
+### `Remnants` – marking usable leftovers
 
-Se zadaným `seed` a bez `timeBudgetMs` dává stejný vstup vždy stejný výsledek.
-`timeBudgetMs` chrání před `max_execution_time` na hostingu bez `set_time_limit`;
-pokud se limit vyčerpá (`time_budget_hit: true`), výsledek závisí na rychlosti stroje.
+`Remnants::none()` (default), `Remnants::auto(minSide: 200)` marks the largest
+empty rectangles whose shorter side is at least `minSide` mm,
+`Remnants::defined([[1000, 500], …])` fits the given formats (largest first,
+each repeatedly while it fits). Marking never influences the placement and is
+advisory: a marked remnant is not guaranteed to be separable with one sequence
+of guillotine cuts.
 
-## Testy
+### Job
+
+`NestingJob::create(material, objective, search, remnants)` – every argument
+optional. `->addStock(width, height, quantity)` (omit `quantity` for unlimited
+stock), `->addPiece(width, height, quantity, label)`.
+
+## Result
+
+`SheetNester::solve()` returns a `Result\NestingResult` (immutable by
+convention):
+
+| | |
+|---|---|
+| `sheets` | `SheetPlan[]`, largest format first: `index`, `width`, `height`, `usedPct` (incl. kerf), `pieces` (`Placement`: `x`, `y`, `width`, `height`, `rotated`, `label`), `cuts` (`CutPlan`: `horizontal`/`vertical` `Cut` lists, lengths, `count()`), `sealMm`, `remnants` (`Remnant[]` or `null`), `remnantM2` |
+| `stockUsage` | `StockUsage[]`: `width`, `height`, `used`, `remaining` (`null` = unlimited) |
+| `unplaced` | `UnplacedPieces[]`: `width`, `height`, `qty`, `reasonCode` (`stock`, `too_large`), `reason()`, `label`; `unplacedCount()` |
+| totals | `materialM2`, `utilizationPct` (piece area / material), `wastePctAvg`, `cutCount`, `cutsMm`, `cutsHorizontalMm`, `cutsVerticalMm`, `sealMm` (`null` without channels), `remnantM2`, `remnantPct` |
+| run | `objective`, `passes`, `timeBudgetHit`, `calculationMs` |
+
+`toArray()` gives a JSON-friendly array, `fromArray()` rebuilds the object
+(e.g. from a database). `toLegacyArray()` / `fromLegacyArray()` use the 1.x
+array shape – see [UPGRADE.md](UPGRADE.md).
+
+Saw cuts are the merged collinear piece edges inside the sheet (sheet borders
+are not cuts); `cutCount` approximates the number of saw passes.
+
+## Rendering
+
+```php
+use Multiplast\SheetNester\Render\{PdfReport, SvgRenderer};
+
+$svg = (new SvgRenderer())->render($result->sheets[0]);          // well-formed SVG
+$pdf = new PdfReport($result, ['title' => 'Cutting plan 123', 'material' => 'PC 10 mm']);
+$pdf->save('/path/plan.pdf');   // or generate() / download() / inline() / html()
+```
+
+Both renderers take a label map as an extra argument (`SvgRenderer::LABELS_CS`,
+`PdfReport::LABELS_CS`, or your own with the same keys); the defaults are
+English. `PdfReport::html()` works without mPDF.
+
+## Tests
 
 ```sh
 composer install
 composer test            # = vendor/bin/phpunit
 ```
 
-Sada obsahuje golden testy (úplný výstup `calculate()` a SVG náhledy referenčního zadání),
-property-based kontrolu invariantů na náhodných zadáních (dílce uvnitř desky, bez překryvů,
-mezery na prořez, zachování všech dílců, limity skladu, součty, zbytky jen ve volné ploše),
-testy jednotlivých funkcí a smoke test PDF (bez mPDF se přeskočí). CI
-(`.github/workflows/ci.yml`) spouští sadu na PHP 8.0–8.5.
+Golden tests pin the complete output and SVG previews of a reference job
+(30 formats, 82 pieces: 18 sheets / 101.92 m² with `minWaste`, 200 restarts,
+seed 42) in `tests/fixtures`; a change that is not meant to change behaviour
+must leave them untouched. Property-based tests check geometry, kerf gaps,
+piece conservation, stock limits, totals, cuts, seal and remnants on random
+jobs, and that multi-pass searches never do worse than the single FFD pass.
+CI runs the suite on PHP 8.0–8.5.
 
-mPDF vyžaduje rozšíření `gd`; pokud ho CLI nemá načtené (typicky XAMPP), použijte
-`composer install --ignore-platform-req=ext-gd` a `php -d extension=gd vendor/bin/phpunit`.
+To accept an intended behaviour change, regenerate the fixtures and review the
+diff: `UPDATE_GOLDEN=1 vendor/bin/phpunit --filter GoldenTest`.
 
-## Vydání nové verze
+mPDF needs the `gd` extension; if your CLI lacks it (XAMPP), use
+`composer install --ignore-platform-req=ext-gd` and
+`php -d extension=gd vendor/bin/phpunit`.
 
-Verze se řídí [SemVer](https://semver.org/lang/cs/) a vydávají se git tagem:
+## Versioning
 
-```sh
-git tag v1.0.1 && git push origin v1.0.1
-```
+[SemVer](https://semver.org/); releases are git tags (`git tag v2.0.0 && git push origin v2.0.0`).
+The public API is `SheetNester`, `NestingJob`, `Grain`, the `Options\*`,
+`Result\*` and `Render\*` classes and the two array shapes. Everything in
+`Internal\` is `@internal` and may change in any release.
 
-V projektu pak `composer update multiplast/sheet-nester`. Veřejné API tvoří
-`SheetNester`, `SheetNesterPdf` a tvar výsledného pole; vše v namespace
-`Multiplast\SheetNester\Internal` (engine, modelové třídy) a `Render\SvgRenderer`
-je `@internal` a může se měnit bez ohledu na SemVer.
+## Licence
 
-**Kontrola před vydáním:** `composer test` musí projít. Golden testy
-(`tests/GoldenTest.php`) porovnávají kompletní výstup `calculate()` na referenčním zadání
-s fixtures v `tests/fixtures/`; změna, která nemá měnit chování, je nesmí změnit.
-Referenční zadání je výchozí předvyplnění v Bridge `/admin/nesting/` (30 formátů, seed 42) –
-`min_waste` s `restarts: 200` bez časového limitu dává 18 desek / 101,92 m². Záměrnou změnu
-chování potvrďte přegenerováním fixtures (`UPDATE_GOLDEN=1 vendor/bin/phpunit --filter GoldenTest`)
-a kontrolou diffu.
+See [LICENSE](LICENSE).

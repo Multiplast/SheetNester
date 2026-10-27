@@ -1740,5 +1740,5 @@
     "time_budget_hit": false,
     "total_remnant_m2": 8.225,
     "total_remnant_pct": 7.83,
-    "strategy": "smallest_fit"
+    "strategy": "min_waste"
 }

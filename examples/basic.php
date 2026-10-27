@@ -3,66 +3,70 @@
 declare(strict_types=1);
 
 /**
- * Ukázkové použití – výpočet a SVG náhled.
- * Spuštění: composer install && php examples/basic.php
+ * Basic usage – solve a job, print the summary, save SVG previews.
+ * Run: composer install && php examples/basic.php
  */
 
+use Multiplast\SheetNester\Grain;
+use Multiplast\SheetNester\NestingJob;
+use Multiplast\SheetNester\Options\Material;
+use Multiplast\SheetNester\Options\Objective;
+use Multiplast\SheetNester\Options\Remnants;
+use Multiplast\SheetNester\Options\Search;
+use Multiplast\SheetNester\Render\SvgRenderer;
 use Multiplast\SheetNester\SheetNester;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-// --- Strategie smallest_fit (výchozí) ---
-$nester = new SheetNester(kerf: 4, grainDirection: 'vertical', formatStrategy: SheetNester::STRATEGY_SMALLEST_FIT);
+// Multiwall polycarbonate: the channels run along the sheet length, which is
+// entered as the height (Y) here – so pieces are never rotated and the seal
+// length counts the top and bottom edge of every piece.
+$job = NestingJob::create(
+        material:  new Material(kerf: 4, grain: Grain::ALONG_HEIGHT),
+        objective: Objective::minWaste(),
+        search:    new Search(restarts: 50, seed: 42, timeBudgetMs: 8000),
+        remnants:  Remnants::auto(minSide: 200),
+    )
+    ->addStock(2100, 6000, quantity: 10)      // width, height [mm], sheets in stock (omit = unlimited)
+    ->addStock(2100, 4000, quantity: 5)
+    ->addStock(1500, 3000, quantity: 20)
+    ->addPiece(500,  1000, quantity: 3, label: 'A')   // width, height [mm], pieces, optional label
+    ->addPiece(300,  800,  quantity: 5, label: 'B')
+    ->addPiece(1000, 2000, quantity: 2, label: 'C');
 
-$nester->addStockFormat(2100, 6000, 10);
-$nester->addStockFormat(2100, 4000, 5);
-$nester->addStockFormat(1500, 3000, 20);
+$result = (new SheetNester())->solve($job);
 
-$nester->addPiece(500,  1000, 3);
-$nester->addPiece(300,  800,  5);
-$nester->addPiece(1000, 2000, 2);
+printf("Objective:        %s (%d orderings tried, %.1f ms)\n", $result->objective, $result->passes, $result->calculationMs);
+printf("Sheets:           %d\n", count($result->sheets));
+printf("Material:         %.2f m², utilization %.2f %%\n", $result->materialM2, $result->utilizationPct);
+printf("Saw cuts:         %d (%.1f m)\n", $result->cutCount, $result->cutsMm / 1000);
+printf("Seal length:      %.1f m\n", ($result->sealMm ?? 0) / 1000);
+printf("Usable remnants:  %.2f m² (%.1f %%)\n", $result->remnantM2 ?? 0, $result->remnantPct ?? 0);
 
-$result = $nester->calculate();
-echo "Strategie:            " . $result['strategy'] . PHP_EOL;
-echo "Použito desek:        " . $result['total_sheets'] . PHP_EOL;
-echo "Využití materiálu:    " . $result['utilization_pct'] . " %" . PHP_EOL;
-echo "Čas výpočtu:          " . $result['calculation_time_ms'] . " ms" . PHP_EOL;
-echo "Testovaných průchodů: " . $result['permutations_tested'] . PHP_EOL . PHP_EOL;
+foreach ($result->unplaced as $u) {
+    printf("Unplaced: %g×%g × %d (%s) – %s\n", $u->width, $u->height, $u->qty, $u->label ?? '-', $u->reason());
+}
 
+foreach ($result->sheets as $sheet) {
+    printf("  sheet #%d  %g×%g  pieces: %d  used: %.1f %%\n",
+        $sheet->index + 1, $sheet->width, $sheet->height, count($sheet->pieces), $sheet->usedPct);
+}
 
-// --- Strategie min_waste (více průchodů, seed = reprodukovatelný výsledek) ---
-$nester2 = new SheetNester(
-    kerf: 4,
-    grainDirection: 'vertical',
-    formatStrategy: SheetNester::STRATEGY_MIN_WASTE,
-    restarts: 50,
-    seed: 42,
-    timeBudgetMs: 8000,
-    remnantMode: SheetNester::REMNANT_AUTO,
-    minRemnantSide: 200,
+// SVG previews (valid standalone XML); pass SvgRenderer::LABELS_CS for Czech texts
+$svg = new SvgRenderer();
+foreach ($result->sheets as $sheet) {
+    file_put_contents(__DIR__ . "/sheet_{$sheet->index}.svg", $svg->render($sheet));
+}
+
+// JSON for storage – NestingResult::fromArray() rebuilds the object later
+file_put_contents(__DIR__ . '/result.json', json_encode($result->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+// A quick estimate: the single FFD pass takes a few milliseconds
+$quick = (new SheetNester())->solve(
+    NestingJob::create(new Material(kerf: 4, grain: Grain::ALONG_HEIGHT), search: Search::singlePass())
+        ->addStock(2100, 6000)
+        ->addPiece(500, 1000, 3)
+        ->addPiece(300, 800, 5)
+        ->addPiece(1000, 2000, 2)
 );
-
-$nester2->addStockFormat(2100, 6000, 10);
-$nester2->addStockFormat(2100, 4000, 5);
-$nester2->addStockFormat(1500, 3000, 20);
-
-$nester2->addPiece(500,  1000, 3);
-$nester2->addPiece(300,  800,  5);
-$nester2->addPiece(1000, 2000, 2);
-
-$result2 = $nester2->calculate();
-echo "Strategie:            " . $result2['strategy'] . PHP_EOL;
-echo "Testovaných průchodů: " . $result2['permutations_tested'] . PHP_EOL;
-echo "Použito desek:        " . $result2['total_sheets'] . PHP_EOL;
-echo "Materiál:             " . $result2['total_material_m2'] . " m²" . PHP_EOL;
-echo "Využití materiálu:    " . $result2['utilization_pct'] . " %" . PHP_EOL;
-echo "Použitelné zbytky:    " . $result2['total_remnant_m2'] . " m²" . PHP_EOL;
-echo "Čas výpočtu:          " . $result2['calculation_time_ms'] . " ms" . PHP_EOL;
-
-foreach ($result2['unplaced_pieces'] as $p) {
-    echo "Nelze umístit: {$p['width']}×{$p['height']} × {$p['qty']} ks – {$p['reason']}" . PHP_EOL;
-}
-
-for ($i = 0; $i < $result2['total_sheets']; $i++) {
-    file_put_contents(__DIR__ . "/sheet_{$i}.svg", $nester2->toSvg($i));
-}
+printf("\nSingle pass: %d sheet(s), %.2f m², %.1f ms\n", count($quick->sheets), $quick->materialM2, $quick->calculationMs);

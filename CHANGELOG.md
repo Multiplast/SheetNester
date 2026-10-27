@@ -1,65 +1,79 @@
 # Changelog
 
-## Nevydáno
+## Unreleased (2.0.0)
 
-- Testovací sada (PHPUnit 9.6–12, PHP 8.0+, `composer test`): golden fixtures referenčního
-  zadání pro všechny strategie, prořez, volnou rotaci, režimy zbytků a neumístěné dílce;
-  property-based invarianty na náhodných zadáních; testy jednotlivých funkcí; smoke test PDF.
-- CI přes GitHub Actions na PHP 8.0–8.5.
-- Vnitřní rozdělení třídy `SheetNester` (1 800 řádků) na `Internal\GuillotinePacker`
-  (umísťování + lookahead), `SheetEliminator`, `FormatReducer`, `Solver` (smyčka průchodů),
-  `Objective` (cílová funkce strategie), `CutCalculator`, `RemnantFinder`, `ResultBuilder`
-  a `Render\SvgRenderer` (kreslí z pole výsledku); pomocné třídy přesunuty do `Internal\`.
-  Veřejné API ani výstup se nemění – golden fixtures, SVG i PDF HTML jsou identické.
-- Nové API 2.0: `NestingJob::create(material, objective, search, remnants)` s `Options\Material`
-  (`Grain::NONE | ALONG_WIDTH | ALONG_HEIGHT`), `Options\Objective` (`minWaste()` / `minCuts()` /
-  `bestRemnant()`), `Options\Search` (`singlePass()` ≙ dřívější `smallest_fit`) a
-  `Options\Remnants` (`none()` / `auto()` / `defined()`); `SheetNester::solve(NestingJob)` vrací
-  typovaný `Result\NestingResult` (`SheetPlan`, `Placement`, `CutPlan`, `Cut`, `Remnant`,
-  `StockUsage`, `UnplacedPieces`). `NestingResult::toLegacyArray()` dává pole v tvaru 1.x.
-  Konstruktor 1.x, `addStockFormat()`, `addPiece()`, `addRemnantFormat()`, `calculate()`
-  a `toSvg()` zůstávají jako deprecated adaptér nad `solve()` (`'horizontal'` = `ALONG_WIDTH`,
-  `'vertical'` = `ALONG_HEIGHT`); výstup beze změny.
-- **Změna hodnot:** délka pásky (`seal_mm`, `total_seal_mm`) se počítá podle osy komůrek –
-  na dílec dvě hrany kolmé ke komůrkám: `Grain::ALONG_WIDTH` → 2 × výška, `Grain::ALONG_HEIGHT`
-  → 2 × šířka, `Grain::NONE` → `null` (v legacy poli `0.0`). Verze 1.x počítala vždy Σ výška × 2
-  bez ohledu na směr, což odpovídá jen komůrkám podél šířky; pro `'vertical'` (= `ALONG_HEIGHT`,
-  konvence e-shopu: délka podél komůrek je `height`) se tedy hodnota mění na Σ šířka × 2.
-  Rozmístění, řezy ani SVG se nemění. Páska je nově na úrovni desky (`SheetPlan::$sealMm`),
-  v legacy poli zůstává v `cuts.seal_mm`.
-- Štítky dílců: `NestingJob::addPiece(..., label: 'okno A')` – štítek nese každý `Placement`
-  i skupina `UnplacedPieces` (neumístěné se seskupují podle rozměru a štítku).
-- Strojové důvody neumístění: `UnplacedPieces::$reasonCode` (`stock` / `too_large`) a anglická
-  `reason()`; legacy pole dál vrací české texty 1.x.
-- Neomezený sklad: `NestingJob::addStock(width, height)` bez `quantity` (nebo `null`);
-  `StockUsage::$remaining` je pak `null`.
-- `NestingResult::toArray()` – čistý tvar pro JSON (`totals`, `sheets[].pieces[].label`,
-  `cuts.count`, `unplaced[].reason_code`); `toLegacyArray()` zůstává pro tvar 1.x.
-- `Render\SvgRenderer` je veřejný: kreslí `SheetPlan`, texty přes mapu (`LABELS_EN` výchozí,
-  `LABELS_CS`), zobrazuje štítky dílců, a výstup je validní XML – 1.x `toSvg()` vkládalo
-  `&nbsp;`, takže samostatný `.svg` soubor se nedal otevřít (nyní `&#160;`).
-- `Render\PdfReport` nahrazuje `SheetNesterPdf`: bere `NestingResult`, texty přes mapu
-  (`LABELS_EN` / `LABELS_CS`), `html()` bez mPDF, sloupce rozměrů v pořadí zadání
-  (šířka, výška – 1.x tisklo „Délka“ = `height` jako první), nové řádky řezy a páska,
-  sloupec štítků, `∞` pro neomezený sklad, meta klíče `company_id` / `company_vat_id`.
-  `SheetNesterPdf` zůstává jako deprecated obal (bere pole 1.x i `NestingResult`, mapuje
-  `company_ico` / `company_dic`, používá české texty).
-- `NestingResult::fromArray()` a `fromLegacyArray()` – obnovení výsledku z uloženého JSONu
-  (např. pro pozdější PDF).
+### New API
+
+- `NestingJob::create(material, objective, search, remnants)` with
+  `Options\Material` (`Grain::NONE | ALONG_WIDTH | ALONG_HEIGHT`),
+  `Options\Objective` (`minWaste()` / `minCuts()` / `bestRemnant()`),
+  `Options\Search` (`singlePass()` replaces the former `smallest_fit`) and
+  `Options\Remnants` (`none()` / `auto()` / `defined()`);
+  `SheetNester::solve(NestingJob)` returns a typed `Result\NestingResult`
+  (`SheetPlan`, `Placement`, `CutPlan`, `Cut`, `Remnant`, `StockUsage`,
+  `UnplacedPieces`). `toArray()` / `fromArray()` for JSON,
+  `toLegacyArray()` / `fromLegacyArray()` for the 1.x array shape.
+- The 1.x constructor, `addStockFormat()`, `addPiece()`, `addRemnantFormat()`,
+  `calculate()`, `toSvg()` and the `STRATEGY_*` / `REMNANT_*` constants are
+  removed – see [UPGRADE.md](UPGRADE.md). `SheetNesterPdf` remains as a
+  deprecated wrapper over `Render\PdfReport`.
+- Piece labels: `addPiece(..., label: 'A')` – carried to every `Placement`
+  and to `UnplacedPieces` (grouped by size and label).
+- Machine-readable unplaced reasons: `UnplacedPieces::$reasonCode`
+  (`stock` / `too_large`) with an English `reason()`; the Czech 1.x texts
+  remain in `toLegacyArray()`.
+- Unlimited stock: `addStock(width, height)` without `quantity`;
+  `StockUsage::$remaining` is `null` then.
+- `Render\SvgRenderer` (public): renders a `SheetPlan`, texts via a label map
+  (`LABELS_EN` default, `LABELS_CS`), shows piece labels, and its output is
+  well-formed XML – 1.x `toSvg()` emitted `&nbsp;`, so a standalone `.svg`
+  file could not be opened (now `&#160;`).
+- `Render\PdfReport` replaces `SheetNesterPdf`: takes a `NestingResult`,
+  texts via a label map (`LABELS_EN` / `LABELS_CS`), `html()` without mPDF,
+  dimension columns in input order (width, height – 1.x printed "Délka" =
+  height first), new rows for saw cuts and seal length, a label column, `∞`
+  for unlimited stock, meta keys `company_id` / `company_vat_id`
+  (`SheetNesterPdf` maps `company_ico` / `company_dic`).
+
+### Changed values
+
+- **Seal length follows the grain axis.** Per piece the two edges
+  perpendicular to the channels: `Grain::ALONG_WIDTH` → 2 × height,
+  `Grain::ALONG_HEIGHT` → 2 × width, `Grain::NONE` → `null` (`0.0` in the
+  legacy array). 1.x always summed height × 2 regardless of direction, which
+  is only right for channels along the width; for the former `'vertical'`
+  (= `ALONG_HEIGHT`, the e-shop convention where the length along the
+  channels is the height) the value changes to Σ width × 2. Placement, cuts
+  and SVG geometry are unchanged. Seal is reported per sheet
+  (`SheetPlan::$sealMm`); the legacy array keeps it in `cuts.seal_mm`.
+
+### Internals
+
+- `SheetNester` (1 800 lines) split into `Internal\GuillotinePacker`
+  (placement + lookahead), `SheetEliminator`, `FormatReducer`, `Solver`
+  (ordering loop), `Scorer` (objective cost / tie-break), `CutCalculator`,
+  `RemnantFinder`, `ResultBuilder`; model classes moved to `Internal\`.
+  Golden fixtures, SVG and PDF HTML identical after the split.
+- Test suite (PHPUnit 9.6–12, PHP 8.0+, `composer test`): golden fixtures of
+  the reference job for all objectives, kerf, free rotation, remnant modes
+  and unplaced pieces; property-based invariants on random jobs; feature,
+  render and PDF smoke tests. CI on PHP 8.0–8.5 (GitHub Actions).
 
 ## 1.0.1 – 2026-10-27
 
-- Minimální verze PHP snížena z 8.1 na 8.0. Kód nepoužívá žádnou syntaxi, funkci ani třídu
-  novější než PHP 8.0 (ověřeno tokenovou kontrolou zdrojáků); stabilní `usort`, na kterém
-  stojí determinismus výsledků, garantuje PHP právě od verze 8.0. Běh na PHP 8.0.30 (Linux)
-  a 8.5.9 (Windows) dává pro všechny strategie, směry vláken a režimy zbytků identický
-  výsledek, SVG i PDF HTML.
+- Minimum PHP version lowered from 8.1 to 8.0. The code uses no syntax,
+  function or class newer than PHP 8.0 (verified by a token scan); the stable
+  `usort` that determinism relies on is guaranteed since PHP 8.0. PHP 8.0.30
+  (Linux) and 8.5.9 (Windows) give identical results, SVG and PDF HTML for all
+  strategies, grain directions and remnant modes.
 
 ## 1.0.0 – 2026-10-26
 
-- Vyčleněno z aplikace Bridge (`App\Model\Multiplast\Nesting`) do samostatného balíčku
-  s namespace `Multiplast\SheetNester`. Algoritmus beze změny – na golden datasetu
-  a dalších variantách (všechny strategie, kerf, směr vláken, režimy zbytků,
-  neumístěné dílce) identický výsledek, SVG i PDF HTML.
-- Pomocné třídy v samostatných souborech (PSR-4) a označené `@internal`.
-- `SheetNesterPdf`: mPDF je volitelná závislost (`suggest`); bez něj srozumitelná výjimka.
+- Extracted from the Bridge application (`App\Model\Multiplast\Nesting`) into
+  a standalone package with the `Multiplast\SheetNester` namespace. Algorithm
+  unchanged – identical result, SVG and PDF HTML on the golden dataset and
+  further variants (all strategies, kerf, grain direction, remnant modes,
+  unplaced pieces).
+- Helper classes in separate files (PSR-4), marked `@internal`.
+- `SheetNesterPdf`: mPDF is an optional dependency (`suggest`); a clear
+  exception without it.

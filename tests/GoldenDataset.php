@@ -4,16 +4,24 @@ declare(strict_types=1);
 
 namespace Multiplast\SheetNester\Tests;
 
+use Multiplast\SheetNester\Grain;
+use Multiplast\SheetNester\NestingJob;
+use Multiplast\SheetNester\Options\Material;
+use Multiplast\SheetNester\Options\Objective;
+use Multiplast\SheetNester\Options\Remnants;
+use Multiplast\SheetNester\Options\Search;
+use Multiplast\SheetNester\Result\NestingResult;
 use Multiplast\SheetNester\SheetNester;
 
 /**
- * The reference job ("golden dataset") – the default prefill of Bridge
- * /admin/nesting/: 30 stock formats (3 heights × 10 widths, 20 sheets each),
- * 7 piece lines (82 pieces) and three remnant formats.
+ * The reference job ("golden dataset"): 30 stock formats (3 heights × 10
+ * widths, 20 sheets each), 7 piece lines (82 pieces) and three remnant
+ * formats – the default prefill of the Bridge nesting admin it came from.
  *
- * With OPTIONS as given (min_waste, 200 restarts, seed 42, no time budget) the
- * engine must produce 18 sheets / 101.92 m². Every fixture in tests/fixtures is
- * derived from this job by overriding options, stock or adding pieces.
+ * With the default options (least material, 200 restarts, seed 42, no time
+ * budget, channels along the height, auto remnants ≥ 200 mm) the engine must
+ * produce 18 sheets / 101.92 m². Every fixture in tests/fixtures is derived
+ * from this job by overriding options, stock or adding pieces.
  */
 final class GoldenDataset
 {
@@ -32,69 +40,49 @@ final class GoldenDataset
         [2200, 900,  22],
     ];
 
-    /** @var array<int, array{int, int}>  Registered for REMNANT_DEFINED runs. */
+    /** @var array<int, array{int, int}>  Used by the Remnants::defined() fixture. */
     public const REMNANT_FORMATS = [[2000, 1050], [1000, 1050], [500, 500]];
 
-    /** Constructor arguments of the reference run. */
-    public const OPTIONS = [
-        'kerf'           => 0.0,
-        'grainDirection' => 'vertical',
-        'formatStrategy' => SheetNester::STRATEGY_MIN_WASTE,
-        'restarts'       => 200,
-        'seed'           => 42,
-        'timeBudgetMs'   => null,
-        'remnantMode'    => SheetNester::REMNANT_AUTO,
-        'minRemnantSide' => 200.0,
-        'cutCostM2'      => 0.05,
-    ];
-
     /**
-     * @param array<string, mixed>            $options      Overrides for OPTIONS (constructor arguments).
-     * @param int|null                        $stock        Sheets per format (null = STOCK).
-     * @param array<int, array{int, int, int}> $extraPieces  Additional [width, height, qty] lines.
+     * @param array<string, mixed>             $options     Overrides: material, objective, search, remnants.
+     * @param int                              $stock       Sheets per format.
+     * @param array<int, array{int, int, int}> $extraPieces Additional [width, height, qty] lines.
      */
-    public static function nester(array $options = [], ?int $stock = null, array $extraPieces = []): SheetNester
+    public static function job(array $options = [], int $stock = self::STOCK, array $extraPieces = []): NestingJob
     {
-        $o = array_merge(self::OPTIONS, $options);
-
-        // Explicit named arguments – unpacking a string-keyed array needs PHP 8.1.
-        $nester = new SheetNester(
-            kerf:           $o['kerf'],
-            grainDirection: $o['grainDirection'],
-            formatStrategy: $o['formatStrategy'],
-            restarts:       $o['restarts'],
-            seed:           $o['seed'],
-            timeBudgetMs:   $o['timeBudgetMs'],
-            remnantMode:    $o['remnantMode'],
-            minRemnantSide: $o['minRemnantSide'],
-            cutCostM2:      $o['cutCostM2'],
+        $job = NestingJob::create(
+            $options['material']  ?? new Material(kerf: 0.0, grain: Grain::ALONG_HEIGHT),
+            $options['objective'] ?? Objective::minWaste(),
+            $options['search']    ?? new Search(restarts: 200, seed: 42),
+            $options['remnants']  ?? Remnants::auto(200.0),
         );
-
         foreach (self::HEIGHTS as $height) {
             foreach (self::WIDTHS as $width) {
-                $nester->addStockFormat($width, $height, $stock ?? self::STOCK);
+                $job->addStock($width, $height, $stock);
             }
         }
         foreach (array_merge(self::PIECES, $extraPieces) as [$w, $h, $qty]) {
-            $nester->addPiece($w, $h, $qty);
+            $job->addPiece($w, $h, $qty);
         }
-        foreach (self::REMNANT_FORMATS as [$w, $h]) {
-            $nester->addRemnantFormat($w, $h);
-        }
+        return $job;
+    }
 
-        return $nester;
+    /** @param array<string, mixed> $options  See job(). */
+    public static function solve(array $options = [], int $stock = self::STOCK, array $extraPieces = []): NestingResult
+    {
+        return (new SheetNester())->solve(self::job($options, $stock, $extraPieces));
     }
 
     /**
-     * Result array without the run-dependent timing, passed through JSON so
-     * floats are normalised exactly like the stored fixtures.
+     * Array without the run-dependent timing, passed through JSON so floats
+     * are normalised exactly like the stored fixtures.
      *
-     * @param array<string, mixed> $result
+     * @param array<string, mixed> $result  toLegacyArray() or toArray() output.
      * @return array<string, mixed>
      */
     public static function normalize(array $result): array
     {
-        unset($result['calculation_time_ms']);
+        unset($result['calculation_time_ms'], $result['calculation_ms']);
         return json_decode(self::encode($result), true, 512, JSON_THROW_ON_ERROR);
     }
 

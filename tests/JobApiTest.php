@@ -11,109 +11,59 @@ use Multiplast\SheetNester\Options\Material;
 use Multiplast\SheetNester\Options\Objective;
 use Multiplast\SheetNester\Options\Remnants;
 use Multiplast\SheetNester\Options\Search;
-use Multiplast\SheetNester\Render\SvgRenderer;
 use Multiplast\SheetNester\Result\NestingResult;
 use Multiplast\SheetNester\SheetNester;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The 2.0 job API must give exactly what the 1.x facade gives for the same
- * input – the golden fixtures are the reference for both.
+ * The job / options API: defaults, validation, labels, unlimited stock, seal
+ * semantics and the array shape of the result.
  */
 final class JobApiTest extends TestCase
 {
-    private const FIXTURE_DIR = __DIR__ . '/fixtures';
-
-    /** Reference job of GoldenDataset expressed with the 2.0 API. */
-    private static function referenceJob(Search $search, ?Objective $objective = null, ?Remnants $remnants = null): NestingJob
+    public function testJobDefaults(): void
     {
-        $job = NestingJob::create(
-            material:  new Material(kerf: 0, grain: Grain::ALONG_HEIGHT),   // 1.x 'vertical'
-            objective: $objective ?? Objective::minWaste(),
-            search:    $search,
-            remnants:  $remnants ?? Remnants::auto(minSide: 200),
-        );
-        foreach (GoldenDataset::HEIGHTS as $height) {
-            foreach (GoldenDataset::WIDTHS as $width) {
-                $job->addStock($width, $height, GoldenDataset::STOCK);
+        $job = NestingJob::create();
+
+        self::assertSame(0.0, $job->material()->kerf);
+        self::assertSame(Grain::NONE, $job->material()->grain);
+        self::assertTrue($job->material()->allowsRotation());
+        self::assertSame(Objective::MIN_WASTE, $job->objective()->name);
+        self::assertSame(20, $job->search()->restarts);
+        self::assertTrue($job->search()->portfolio);
+        self::assertFalse($job->search()->isSinglePass());
+        self::assertFalse($job->remnants()->enabled());
+        self::assertSame([], $job->stock());
+        self::assertSame([], $job->pieces());
+    }
+
+    public function testOptionsValidateTheirArguments(): void
+    {
+        $invalid = [
+            'negative kerf'      => fn() => new Material(kerf: -1),
+            'unknown grain'      => fn() => new Material(grain: 'vertical'),
+            'negative cut cost'  => fn() => Objective::minCuts(-0.1),
+            'negative restarts'  => fn() => new Search(restarts: -1),
+            'zero time budget'   => fn() => new Search(timeBudgetMs: 0),
+            'zero remnant side'  => fn() => Remnants::auto(0),
+            'no remnant formats' => fn() => Remnants::defined([]),
+            'bad remnant format' => fn() => Remnants::defined([[1000, 0]]),
+            'stock width 0'      => fn() => NestingJob::create()->addStock(0, 1000),
+            'stock quantity 0'   => fn() => NestingJob::create()->addStock(1000, 1000, 0),
+            'piece width 0'      => fn() => NestingJob::create()->addPiece(0, 100),
+            'piece quantity 0'   => fn() => NestingJob::create()->addPiece(100, 100, 0),
+        ];
+        foreach ($invalid as $label => $call) {
+            try {
+                $call();
+                self::fail("Accepted invalid {$label}");
+            } catch (InvalidArgumentException $e) {
+                self::addToAssertionCount(1);
             }
         }
-        foreach (GoldenDataset::PIECES as [$w, $h, $qty]) {
-            $job->addPiece($w, $h, $qty);
-        }
-        return $job;
-    }
 
-    /** @return array<string, mixed> */
-    private static function fixture(string $name): array
-    {
-        return json_decode((string) file_get_contents(self::FIXTURE_DIR . "/{$name}.json"), true, 512, JSON_THROW_ON_ERROR);
-    }
-
-    public function testSolveMatchesTheGoldenFixture(): void
-    {
-        $result = (new SheetNester())->solve(self::referenceJob(new Search(restarts: 200, seed: 42)));
-
-        self::assertInstanceOf(NestingResult::class, $result);
-        self::assertSame(18, count($result->sheets));
-        self::assertSame(101.92, $result->materialM2);
-        self::assertSame([], $result->unplaced);
-        self::assertSame(Objective::MIN_WASTE, $result->objective);
-
-        self::assertSame(self::fixture('min_waste-r200'), GoldenDataset::normalize($result->toLegacyArray()));
-    }
-
-    public function testSinglePassMatchesSmallestFit(): void
-    {
-        $result = (new SheetNester())->solve(self::referenceJob(Search::singlePass()));
-
-        self::assertSame(1, $result->passes);
-        self::assertFalse($result->timeBudgetHit);
-
-        $expected = self::fixture('smallest_fit');
-        $expected['strategy'] = Objective::MIN_WASTE;   // 1.x reported 'smallest_fit' as the strategy
-        self::assertSame($expected, GoldenDataset::normalize($result->toLegacyArray()));
-    }
-
-    public function testMinCutsAndBestRemnantMatchTheirFixtures(): void
-    {
-        $minCuts = (new SheetNester())->solve(self::referenceJob(new Search(restarts: 20, seed: 42), Objective::minCuts(0.05)));
-        self::assertSame(self::fixture('min_cuts-r20'), GoldenDataset::normalize($minCuts->toLegacyArray()));
-
-        $bestRemnant = (new SheetNester())->solve(self::referenceJob(
-            new Search(restarts: 20, seed: 42),
-            Objective::bestRemnant(),
-            Remnants::defined(GoldenDataset::REMNANT_FORMATS)
-        ));
-        self::assertSame(self::fixture('best_remnant-r20-defined'), GoldenDataset::normalize($bestRemnant->toLegacyArray()));
-    }
-
-    public function testSvgRendererMatchesTheGoldenPreview(): void
-    {
-        $result = (new SheetNester())->solve(self::referenceJob(new Search(restarts: 200, seed: 42)));
-
-        // the golden SVG fixtures are rendered with the Czech labels (1.x toSvg() look)
-        self::assertSame(
-            (string) file_get_contents(self::FIXTURE_DIR . '/min_waste-r200.sheet0.svg'),
-            (new SvgRenderer(SvgRenderer::LABELS_CS))->render($result->sheets[0])
-        );
-    }
-
-    public function testResultObjectIsConsistentWithItsLegacyArray(): void
-    {
-        $result = (new SheetNester())->solve(self::referenceJob(Search::singlePass()));
-        $legacy = $result->toLegacyArray();
-
-        foreach ($result->sheets as $i => $sheet) {
-            self::assertSame($i, $sheet->index);
-            self::assertSame($legacy['sheets'][$i]['stock_width'], $sheet->width);
-            self::assertCount(count($legacy['sheets'][$i]['pieces']), $sheet->pieces);
-            self::assertSame($legacy['sheets'][$i]['cuts']['total_mm'], $sheet->cuts->totalMm);
-            self::assertSame($legacy['sheets'][$i]['remnant_area_m2'], $sheet->remnantM2);
-        }
-        self::assertSame($legacy['total_cuts_count'], $result->cutCount);
-        self::assertSame($legacy['total_remnant_m2'], $result->remnantM2);
-        self::assertSame($legacy['utilization_pct'], $result->utilizationPct);
+        Grain::assertValid(Grain::ALONG_WIDTH);
+        self::assertFalse(Grain::allowsRotation(Grain::ALONG_WIDTH));
     }
 
     public function testSealFollowsTheGrainAxis(): void
@@ -164,7 +114,7 @@ final class JobApiTest extends TestCase
         foreach ($result->unplaced as $u) {
             $unplaced[(string) $u->label] = [$u->qty, $u->reasonCode];
         }
-        self::assertSame([2, 'stock'], $unplaced['']);          // two unlabeled 900×400 merged like 1.x
+        self::assertSame([2, 'stock'], $unplaced['']);          // two unlabeled 900×400 merged
         self::assertSame([1, 'too_large'], $unplaced['B']);
         self::assertSame('Larger than every stock format.', $result->unplaced[1]->reason());
 
@@ -191,7 +141,7 @@ final class JobApiTest extends TestCase
 
     public function testToArrayShape(): void
     {
-        $result = (new SheetNester())->solve(self::referenceJob(Search::singlePass()));
+        $result = GoldenDataset::solve(['search' => Search::singlePass()]);
         $array  = $result->toArray();
 
         self::assertSame(['objective', 'passes', 'time_budget_hit', 'calculation_ms', 'totals', 'sheets', 'stock_usage', 'unplaced'], array_keys($array));
@@ -202,49 +152,11 @@ final class JobApiTest extends TestCase
         self::assertSame(['count', 'horizontal_mm', 'vertical_mm', 'total_mm', 'horizontal', 'vertical'], array_keys($array['sheets'][0]['cuts']));
         self::assertSame(['x', 'y', 'width', 'height', 'rotated', 'label'], array_keys($array['sheets'][0]['pieces'][0]));
         self::assertIsString(json_encode($array, JSON_THROW_ON_ERROR));
-    }
 
-    public function testOptionsValidateTheirArguments(): void
-    {
-        $invalid = [
-            'negative kerf'        => fn() => new Material(kerf: -1),
-            'unknown grain'        => fn() => new Material(grain: 'vertical'),
-            'negative cut cost'    => fn() => Objective::minCuts(-0.1),
-            'negative restarts'    => fn() => new Search(restarts: -1),
-            'zero time budget'     => fn() => new Search(timeBudgetMs: 0),
-            'zero remnant side'    => fn() => Remnants::auto(0),
-            'no remnant formats'   => fn() => Remnants::defined([]),
-            'bad remnant format'   => fn() => Remnants::defined([[1000, 0]]),
-            'stock quantity 0'     => fn() => NestingJob::create()->addStock(1000, 1000, 0),
-            'piece width 0'        => fn() => NestingJob::create()->addPiece(0, 100),
-            'piece quantity 0'     => fn() => NestingJob::create()->addPiece(100, 100, 0),
-        ];
-        foreach ($invalid as $label => $call) {
-            try {
-                $call();
-                self::fail("Accepted invalid {$label}");
-            } catch (InvalidArgumentException $e) {
-                self::addToAssertionCount(1);
-            }
-        }
-    }
-
-    public function testJobDefaults(): void
-    {
-        $job = NestingJob::create();
-
-        self::assertSame(0.0, $job->material()->kerf);
-        self::assertSame(Grain::NONE, $job->material()->grain);
-        self::assertTrue($job->material()->allowsRotation());
-        self::assertSame(Objective::MIN_WASTE, $job->objective()->name);
-        self::assertSame(20, $job->search()->restarts);
-        self::assertFalse($job->search()->isSinglePass());
-        self::assertFalse($job->remnants()->enabled());
-    }
-
-    public function testLegacyMethodsRequireLegacyConstructor(): void
-    {
-        $this->expectException(\LogicException::class);
-        (new SheetNester())->addPiece(100, 100, 1);
+        // the 1.x shape is still available
+        $legacy = $result->toLegacyArray();
+        self::assertSame(count($result->sheets), $legacy['total_sheets']);
+        self::assertSame($result->objective, $legacy['strategy']);
+        self::assertSame($result->passes, $legacy['permutations_tested']);
     }
 }

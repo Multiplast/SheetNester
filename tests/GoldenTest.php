@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace Multiplast\SheetNester\Tests;
 
-use Multiplast\SheetNester\SheetNester;
+use Multiplast\SheetNester\Grain;
+use Multiplast\SheetNester\Options\Material;
+use Multiplast\SheetNester\Options\Objective;
+use Multiplast\SheetNester\Options\Remnants;
+use Multiplast\SheetNester\Options\Search;
+use Multiplast\SheetNester\Render\SvgRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Golden tests: the complete calculate() output (placements, cuts, remnants,
- * totals) and the SVG previews of the reference job must stay byte-for-byte
- * identical. A difference means the algorithm or the renderer changed –
- * intended or not.
+ * Golden tests: the complete output of the reference job (placements, cuts,
+ * remnants, totals – stored in the 1.x array shape, which 2.0 reproduces
+ * bit for bit via toLegacyArray()) and its SVG previews must stay identical.
+ * A difference means the algorithm or the renderer changed – intended or not.
  *
  * To accept a deliberate change, regenerate the fixtures and review the diff:
  *   UPDATE_GOLDEN=1 vendor/bin/phpunit --filter GoldenTest
@@ -21,45 +26,44 @@ final class GoldenTest extends TestCase
     private const FIXTURE_DIR = __DIR__ . '/fixtures';
 
     /**
-     * Fixture name => [constructor overrides, stock per format, extra pieces].
+     * Fixture name => [option overrides, stock per format, extra pieces].
      *
-     * @return array<string, array{array<string, mixed>, int|null, array<int, array{int, int, int}>}>
+     * @return array<string, array{array<string, mixed>, int, array<int, array{int, int, int}>}>
      */
     private static function cases(): array
     {
         return [
             // README reference: 18 sheets / 101.92 m²
-            'min_waste-r200' => [[], null, []],
+            'min_waste-r200' => [[], GoldenDataset::STOCK, []],
 
-            'smallest_fit' => [
-                ['formatStrategy' => SheetNester::STRATEGY_SMALLEST_FIT],
-                null, [],
+            'min_waste-single-pass' => [
+                ['search' => Search::singlePass()],
+                GoldenDataset::STOCK, [],
             ],
             'min_cuts-r20' => [
-                ['formatStrategy' => SheetNester::STRATEGY_MIN_CUTS, 'restarts' => 20],
-                null, [],
+                ['objective' => Objective::minCuts(0.05), 'search' => new Search(restarts: 20, seed: 42)],
+                GoldenDataset::STOCK, [],
             ],
             'best_remnant-r20-defined' => [
                 [
-                    'formatStrategy' => SheetNester::STRATEGY_BEST_REMNANT,
-                    'restarts'       => 20,
-                    'remnantMode'    => SheetNester::REMNANT_DEFINED,
+                    'objective' => Objective::bestRemnant(),
+                    'search'    => new Search(restarts: 20, seed: 42),
+                    'remnants'  => Remnants::defined(GoldenDataset::REMNANT_FORMATS),
                 ],
-                null, [],
+                GoldenDataset::STOCK, [],
             ],
             // kerf + free rotation, remnants off
             'min_waste-r20-kerf4-none' => [
                 [
-                    'restarts'       => 20,
-                    'kerf'           => 4.0,
-                    'grainDirection' => 'none',
-                    'remnantMode'    => SheetNester::REMNANT_NONE,
+                    'material' => new Material(kerf: 4.0, grain: Grain::NONE),
+                    'search'   => new Search(restarts: 20, seed: 42),
+                    'remnants' => Remnants::none(),
                 ],
-                null, [],
+                GoldenDataset::STOCK, [],
             ],
             // one sheet per format + 30 big pieces → stock shortage, plus one oversize piece
             'min_waste-r20-unplaced' => [
-                ['restarts' => 20],
+                ['search' => new Search(restarts: 20, seed: 42)],
                 1,
                 [[2000, 2000, 30], [7000, 100, 1]],
             ],
@@ -68,13 +72,13 @@ final class GoldenTest extends TestCase
 
     public function testReferenceRunMatchesReadme(): void
     {
-        $result = GoldenDataset::nester()->calculate();
+        $result = GoldenDataset::solve();
 
-        self::assertSame(18, $result['total_sheets']);
-        self::assertSame(101.92, $result['total_material_m2']);
-        self::assertSame([], $result['unplaced_pieces']);
-        self::assertSame(203, $result['permutations_tested']);   // FFD + 2 distinct portfolio orderings + 200 shuffles
-        self::assertFalse($result['time_budget_hit']);
+        self::assertCount(18, $result->sheets);
+        self::assertSame(101.92, $result->materialM2);
+        self::assertSame([], $result->unplaced);
+        self::assertSame(203, $result->passes);   // FFD + 2 distinct portfolio orderings + 200 shuffles
+        self::assertFalse($result->timeBudgetHit);
     }
 
     public function testFixtures(): void
@@ -83,15 +87,16 @@ final class GoldenTest extends TestCase
         if ($update && !is_dir(self::FIXTURE_DIR)) {
             mkdir(self::FIXTURE_DIR, 0777, true);
         }
+        $renderer = new SvgRenderer();
 
         foreach (self::cases() as $name => [$options, $stock, $extraPieces]) {
-            $nester = GoldenDataset::nester($options, $stock, $extraPieces);
-            $actual = GoldenDataset::normalize($nester->calculate());
+            $result = GoldenDataset::solve($options, $stock, $extraPieces);
+            $actual = GoldenDataset::normalize($result->toLegacyArray());
 
             // SVG previews: full markup of the first sheet (readable diff) + md5 of every sheet
             $svgMd5 = [];
-            for ($i = 0; $i < $actual['total_sheets']; $i++) {
-                $svgMd5[] = md5($nester->toSvg($i));
+            foreach ($result->sheets as $sheet) {
+                $svgMd5[] = md5($renderer->render($sheet));
             }
 
             $resultFile = self::FIXTURE_DIR . "/{$name}.json";
@@ -101,7 +106,7 @@ final class GoldenTest extends TestCase
             if ($update) {
                 file_put_contents($resultFile, GoldenDataset::encode($actual) . "\n");
                 file_put_contents($svgMd5File, json_encode($svgMd5, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
-                file_put_contents($sheet0File, $nester->toSvg(0));
+                file_put_contents($sheet0File, $renderer->render($result->sheets[0]));
                 continue;
             }
 
@@ -114,7 +119,7 @@ final class GoldenTest extends TestCase
 
             self::assertSame(
                 (string) file_get_contents($sheet0File),
-                $nester->toSvg(0),
+                $renderer->render($result->sheets[0]),
                 "SVG preview of '{$name}' (sheet 0) changed. {$hint}"
             );
             self::assertSame(
