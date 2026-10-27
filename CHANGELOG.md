@@ -6,6 +6,11 @@
   zadání pro všechny strategie, prořez, volnou rotaci, režimy zbytků a neumístěné dílce;
   property-based invarianty na náhodných zadáních; testy jednotlivých funkcí; smoke test PDF.
 - CI přes GitHub Actions na PHP 8.0–8.5.
+- Vnitřní rozdělení třídy `SheetNester` (1 800 řádků) na `Internal\GuillotinePacker`
+  (umísťování + lookahead), `SheetEliminator`, `FormatReducer`, `Solver` (smyčka průchodů),
+  `Objective` (cílová funkce strategie), `CutCalculator`, `RemnantFinder`, `ResultBuilder`
+  a `Render\SvgRenderer` (kreslí z pole výsledku); pomocné třídy přesunuty do `Internal\`.
+  Veřejné API ani výstup se nemění – golden fixtures, SVG i PDF HTML jsou identické.
 
 ## 1.0.1 – 2026-10-27
 

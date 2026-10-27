@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Multiplast\SheetNester;
+namespace Multiplast\SheetNester\Internal;
 
 /**
- * Represents a single piece to be cut.
+ * Represents a single piece (order line) to be cut.
  *
- * @internal Used by SheetNester; not part of the public API.
+ * @internal Used by the engine; not part of the public API.
  */
 class Piece
 {

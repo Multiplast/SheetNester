@@ -128,8 +128,9 @@ git tag v1.0.1 && git push origin v1.0.1
 ```
 
 V projektu pak `composer update multiplast/sheet-nester`. Veřejné API tvoří
-`SheetNester`, `SheetNesterPdf` a tvar výsledného pole; pomocné třídy
-(`Piece`, `StockFormat`, `Sheet`, `FreeRect`, `PlacedPiece`) jsou `@internal`.
+`SheetNester`, `SheetNesterPdf` a tvar výsledného pole; vše v namespace
+`Multiplast\SheetNester\Internal` (engine, modelové třídy) a `Render\SvgRenderer`
+je `@internal` a může se měnit bez ohledu na SemVer.
 
 **Kontrola před vydáním:** `composer test` musí projít. Golden testy
 (`tests/GoldenTest.php`) porovnávají kompletní výstup `calculate()` na referenčním zadání

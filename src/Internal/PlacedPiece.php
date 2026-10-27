@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Multiplast\SheetNester;
+namespace Multiplast\SheetNester\Internal;
 
 /**
  * Represents a placed piece on a specific sheet.
  *
- * @internal Used by SheetNester; not part of the public API.
+ * @internal Used by the engine; not part of the public API.
  */
 class PlacedPiece
 {

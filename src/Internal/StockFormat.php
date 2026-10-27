@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Multiplast\SheetNester;
+namespace Multiplast\SheetNester\Internal;
 
 /**
  * Represents an available stock sheet format with limited inventory.
  *
- * @internal Used by SheetNester; not part of the public API.
+ * @internal Used by the engine; not part of the public API.
  */
 class StockFormat
 {

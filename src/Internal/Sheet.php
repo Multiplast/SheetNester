@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Multiplast\SheetNester;
+namespace Multiplast\SheetNester\Internal;
 
 /**
  * Represents a single sheet (of a specific stock format) with placed pieces.
  *
- * @internal Used by SheetNester; not part of the public API.
+ * @internal Used by the engine; not part of the public API.
  */
 class Sheet
 {
@@ -16,9 +16,6 @@ class Sheet
 
     /** @var FreeRect[] */
     public array $freeRects;
-
-    /** @var FreeRect[] – usable remnants, filled by SheetNester::attachRemnants() */
-    public array $remnants = [];
 
     public function __construct(
         public int         $index,
