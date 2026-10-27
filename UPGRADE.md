@@ -39,6 +39,12 @@ only the seal length differs.
   piece, `ALONG_HEIGHT` → 2 × width, `NONE` → `null` (`0.0` in the legacy
   array). 1.x always summed height × 2, which is only right for channels along
   the width – with `Grain::ALONG_HEIGHT` the number changes.
+- **Saw cuts with a kerf are no longer double-counted.** 1.x reported the
+  right edge of a piece and the left edge of its neighbour (one kerf apart) as
+  two cuts – with a 4 mm kerf that inflated `total_cuts_count` by about 80 %.
+  One blade pass is now one cut; `cutCount` / `cutsMm` (and so the decisions
+  of `Objective::minCuts()`) change only for jobs with `kerf > 0`. Placements
+  are unchanged.
 - Unplaced pieces carry a machine-readable `reasonCode` (`stock`, `too_large`)
   and an English `reason()`; the Czech 1.x texts remain in `toLegacyArray()`.
 - The SVG preview is well-formed XML (1.x emitted `&nbsp;`, which broke
@@ -63,4 +69,6 @@ only the seal length differs.
 
 `NestingResult::fromArray()` and `fromLegacyArray()` rebuild the object from
 either shape (e.g. from JSON stored in a database) so a PDF can be rendered
-later.
+later. A stored 1.x `strategy: 'smallest_fit'` is read as objective
+`min_waste` – 2.0 has no such objective, the quick estimate is `minWaste()`
+with a single pass.

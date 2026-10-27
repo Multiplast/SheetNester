@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Multiplast\SheetNester\Result;
 
+use Multiplast\SheetNester\Options\Objective;
+
 /**
  * Complete outcome of a nesting run: the sheet plans (largest format first),
  * stock usage, unplaced pieces and the totals over all sheets.
@@ -196,7 +198,9 @@ final class NestingResult
             (float) $a['total_cuts_vert_mm'],
             (float) ($a['total_seal_mm'] ?? 0.0)
         );
-        $result->objective     = (string) ($a['strategy'] ?? '');
+        // The 1.x 'smallest_fit' strategy was min_waste with a single pass.
+        $strategy              = (string) ($a['strategy'] ?? '');
+        $result->objective     = $strategy === 'smallest_fit' ? Objective::MIN_WASTE : $strategy;
         $result->passes        = (int) ($a['permutations_tested'] ?? 1);
         $result->timeBudgetHit = (bool) ($a['time_budget_hit'] ?? false);
         $result->calculationMs = (float) ($a['calculation_time_ms'] ?? 0.0);

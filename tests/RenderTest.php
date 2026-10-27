@@ -78,6 +78,8 @@ final class RenderTest extends TestCase
         self::assertStringContainsString('Seal length', $html);
         self::assertStringContainsString(round($result->sealMm / 1000, 1) . ' m', $html);
         self::assertStringContainsString('Saw cuts', $html);
+        self::assertStringContainsString('Least material', $html);          // objective by name …
+        self::assertStringNotContainsString('min_waste', $html);            // … not by identifier
         self::assertStringContainsString('Unplaced pieces', $html);
         self::assertStringContainsString('Larger than every stock format.', $html);
         self::assertStringContainsString('okno &quot;A&quot; &amp; B', $html);       // label column
@@ -88,6 +90,7 @@ final class RenderTest extends TestCase
         self::assertStringContainsString('Nářezový plán', $czech);
         self::assertStringContainsString('Zaslepení (páska)', $czech);
         self::assertStringContainsString('Kus je větší než všechny dostupné formáty desek.', $czech);
+        self::assertStringContainsString('Nejméně materiálu', $czech);
     }
 
     public function testLegacyPdfWrapperAcceptsTheLegacyArrayAndMeta(): void
@@ -112,6 +115,7 @@ final class RenderTest extends TestCase
         self::assertStringContainsString('DIČ: CZ25022229', $html);
         self::assertStringContainsString('Kus je větší než všechny dostupné formáty desek.', $html);
         self::assertStringContainsString('Zaslepení (páska)', $html);
+        self::assertStringContainsString('Nejméně materiálu', $html);
     }
 
     public function testArrayRoundTrips(): void
@@ -124,6 +128,10 @@ final class RenderTest extends TestCase
 
         $legacy = $result->toLegacyArray();
         self::assertSame($legacy, NestingResult::fromLegacyArray($legacy)->toLegacyArray());
+
+        $quick = $legacy;
+        $quick['strategy'] = 'smallest_fit';                                 // as stored by 1.x
+        self::assertSame('min_waste', NestingResult::fromLegacyArray($quick)->objective);
 
         foreach (['min_waste-r200', 'min_waste-r20-kerf4-none', 'min_waste-r20-unplaced'] as $fixture) {
             $stored = json_decode((string) file_get_contents(__DIR__ . "/fixtures/{$fixture}.json"), true, 512, JSON_THROW_ON_ERROR);

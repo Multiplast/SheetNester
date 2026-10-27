@@ -12,7 +12,8 @@
   `SheetNester::solve(NestingJob)` returns a typed `Result\NestingResult`
   (`SheetPlan`, `Placement`, `CutPlan`, `Cut`, `Remnant`, `StockUsage`,
   `UnplacedPieces`). `toArray()` / `fromArray()` for JSON,
-  `toLegacyArray()` / `fromLegacyArray()` for the 1.x array shape.
+  `toLegacyArray()` / `fromLegacyArray()` for the 1.x array shape (a stored
+  1.x `strategy: 'smallest_fit'` is read as `min_waste`).
 - The 1.x constructor, `addStockFormat()`, `addPiece()`, `addRemnantFormat()`,
   `calculate()`, `toSvg()` and the `STRATEGY_*` / `REMNANT_*` constants are
   removed – see [UPGRADE.md](UPGRADE.md). `SheetNesterPdf` remains as a
@@ -33,7 +34,9 @@
   dimension columns in input order (width, height – 1.x printed "Délka" =
   height first), new rows for saw cuts and seal length, a label column, `∞`
   for unlimited stock, meta keys `company_id` / `company_vat_id`
-  (`SheetNesterPdf` maps `company_ico` / `company_dic`).
+  (`SheetNesterPdf` maps `company_ico` / `company_dic`). The objective row
+  shows a translated name (`objective_min_waste` … label keys) – 1.x printed
+  the raw identifier (`Strategie: min_waste`).
 
 ### Changed values
 
