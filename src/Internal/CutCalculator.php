@@ -18,8 +18,9 @@ final class CutCalculator
 {
     /**
      * @param string $grain One of the Grain constants – decides the seal axis.
+     * @param float  $kerf  Blade kerf in mm – the strip a cut removes.
      */
-    public function __construct(private string $grain)
+    public function __construct(private string $grain, private float $kerf = 0.0)
     {
     }
 
@@ -28,10 +29,17 @@ final class CutCalculator
      *
      * Cut algorithm:
      *   1. Collect all piece edges as axis-aligned segments (horizontal / vertical).
+     *      A piece's left/top edge sits right after the kerf strip of the cut
+     *      that separated it from its neighbour, i.e. kerf away from the
+     *      neighbour's right/bottom edge; it is snapped back by the kerf so
+     *      both pieces report the same blade pass instead of two parallel ones.
      *   2. Discard segments on the sheet border (those are edges, not cuts).
      *   3. Merge collinear overlapping/touching segments to avoid double-counting
      *      shared edges between adjacent pieces.
      *   4. Return merged segment list + totals.
+     *
+     * The result is a proxy for the saw work: merged piece edges, not the
+     * guillotine cut sequence (which would run across whole sub-panels).
      */
     public function forSheet(Sheet $sheet): CutPlan
     {
@@ -44,8 +52,8 @@ final class CutCalculator
         $vertSegs  = [];
 
         foreach ($sheet->pieces as $p) {
-            $x1 = $p->x;
-            $y1 = $p->y;
+            $x1 = $p->x > 0.0 ? $p->x - $this->kerf : $p->x;
+            $y1 = $p->y > 0.0 ? $p->y - $this->kerf : $p->y;
             $x2 = $p->x + $p->width;
             $y2 = $p->y + $p->height;
 

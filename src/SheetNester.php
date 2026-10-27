@@ -56,7 +56,7 @@ final class SheetNester
         $labels  = array_map(fn(Piece $p) => $p->label, $job->pieces());
         $packer  = new GuillotinePacker($material->kerf, $material->allowsRotation(), $job->stock());
         $finder  = new RemnantFinder($material->kerf, $material->allowsRotation(), $remnants->minSide, $remnants->formats);
-        $builder = new ResultBuilder($job->stock(), $material->kerf, new CutCalculator($material->grain), $labels);
+        $builder = new ResultBuilder($job->stock(), $material->kerf, new CutCalculator($material->grain, $material->kerf), $labels);
         $solver  = new Solver(
             $packer,
             new SheetEliminator($packer),

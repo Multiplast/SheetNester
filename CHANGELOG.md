@@ -46,6 +46,12 @@
   channels is the height) the value changes to Σ width × 2. Placement, cuts
   and SVG geometry are unchanged. Seal is reported per sheet
   (`SheetPlan::$sealMm`); the legacy array keeps it in `cuts.seal_mm`.
+- **Saw cuts with a kerf are no longer double-counted.** 1.x reported the
+  right edge of a piece and the left edge of its neighbour (one kerf apart)
+  as two cuts – with a 4 mm kerf that inflated the cut count by about 80 %.
+  The edge after the kerf strip now snaps to the same coordinate, so one
+  blade pass is one cut. `cutCount` / `cutsMm` (and therefore the decisions
+  of `Objective::minCuts()`) change only for jobs with `kerf > 0`.
 
 ### Internals
 

@@ -197,4 +197,36 @@ final class FeaturesTest extends TestCase
         self::assertSame(1, $result->cutCount);
         self::assertSame(500.0, $result->cutsMm);
     }
+
+    public function testKerfDoesNotDoubleCountCuts(): void
+    {
+        // Two pieces side by side with a 4 mm kerf: one blade pass between them.
+        $job = NestingJob::create(new Material(kerf: 4), search: Search::singlePass())
+            ->addStock(2004, 500, 1)
+            ->addPiece(1000, 500, 2);
+
+        $result = (new SheetNester())->solve($job);
+        $sheet  = $result->sheets[0];
+
+        self::assertSame([0.0, 1004.0], [$sheet->pieces[0]->x, $sheet->pieces[1]->x]);
+        self::assertCount(1, $sheet->cuts->vertical);
+        self::assertSame(1000.0, $sheet->cuts->vertical[0]->position);   // right edge of the first piece
+        self::assertSame(500.0, $sheet->cuts->vertical[0]->length);
+        self::assertSame(1, $result->cutCount);
+        self::assertSame(500.0, $result->cutsMm);
+
+        // Stacked with kerf: one horizontal pass, and the shared left edge is
+        // reported once even though the second piece sits in a lower free rect.
+        $stacked = (new SheetNester())->solve(
+            NestingJob::create(new Material(kerf: 4), search: Search::singlePass())
+                ->addStock(1500, 1004, 1)
+                ->addPiece(1000, 500, 2)
+        );
+        $cuts = $stacked->sheets[0]->cuts;
+        self::assertCount(1, $cuts->horizontal);
+        self::assertSame(500.0, $cuts->horizontal[0]->position);
+        self::assertCount(1, $cuts->vertical);
+        self::assertSame(1000.0, $cuts->vertical[0]->position);
+        self::assertSame([0.0, 1004.0], [$cuts->vertical[0]->start, $cuts->vertical[0]->end]);
+    }
 }

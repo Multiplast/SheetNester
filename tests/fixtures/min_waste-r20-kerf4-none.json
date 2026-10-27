@@ -85,201 +85,87 @@
             ],
             "used_area_pct": 87.36,
             "cuts": {
-                "horizontal_mm": 15490.0,
-                "vertical_mm": 19480.0,
-                "total_mm": 34970.0,
+                "horizontal_mm": 10756.0,
+                "vertical_mm": 11764.0,
+                "total_mm": 22520.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
                         "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
+                        "x_end": 1804.0,
+                        "length": 1804.0
                     },
                     {
                         "y": 810.0,
-                        "x_start": 904.0,
-                        "x_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 810.0,
-                        "x_start": 5066.0,
+                        "x_start": 5062.0,
                         "x_end": 5966.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 814.0,
-                        "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 814.0,
-                        "x_start": 904.0,
-                        "x_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 814.0,
-                        "x_start": 5066.0,
-                        "x_end": 5966.0,
-                        "length": 900.0
+                        "length": 904.0
                     },
                     {
                         "y": 1260.0,
-                        "x_start": 1808.0,
+                        "x_start": 1804.0,
                         "x_end": 4008.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 1264.0,
-                        "x_start": 1808.0,
-                        "x_end": 2708.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 1264.0,
-                        "x_start": 2712.0,
-                        "x_end": 3612.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 1264.0,
-                        "x_start": 3616.0,
-                        "x_end": 3886.0,
-                        "length": 270.0
+                        "length": 2204.0
                     },
                     {
                         "y": 1624.0,
                         "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 1624.0,
-                        "x_start": 904.0,
                         "x_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     },
                     {
                         "y": 1624.0,
-                        "x_start": 5066.0,
+                        "x_start": 5062.0,
                         "x_end": 5966.0,
-                        "length": 900.0
+                        "length": 904.0
                     },
                     {
                         "y": 2000.0,
-                        "x_start": 4012.0,
+                        "x_start": 4008.0,
                         "x_end": 5062.0,
-                        "length": 1050.0
+                        "length": 1054.0
                     },
                     {
                         "y": 2074.0,
-                        "x_start": 1808.0,
-                        "x_end": 2708.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 2074.0,
-                        "x_start": 2712.0,
-                        "x_end": 3612.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 2074.0,
-                        "x_start": 3616.0,
+                        "x_start": 1804.0,
                         "x_end": 3886.0,
-                        "length": 270.0
+                        "length": 2082.0
                     }
                 ],
                 "cuts_vertical": [
                     {
                         "x": 900.0,
                         "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 900.0,
-                        "y_start": 814.0,
                         "y_end": 1624.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 904.0,
-                        "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 904.0,
-                        "y_start": 814.0,
-                        "y_end": 1624.0,
-                        "length": 810.0
+                        "length": 1624.0
                     },
                     {
                         "x": 1804.0,
                         "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 1804.0,
-                        "y_start": 814.0,
-                        "y_end": 1624.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 1808.0,
-                        "y_start": 0.0,
-                        "y_end": 1260.0,
-                        "length": 1260.0
-                    },
-                    {
-                        "x": 1808.0,
-                        "y_start": 1264.0,
                         "y_end": 2074.0,
-                        "length": 810.0
+                        "length": 2074.0
                     },
                     {
                         "x": 2708.0,
-                        "y_start": 1264.0,
+                        "y_start": 1260.0,
                         "y_end": 2074.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 2712.0,
-                        "y_start": 1264.0,
-                        "y_end": 2074.0,
-                        "length": 810.0
+                        "length": 814.0
                     },
                     {
                         "x": 3612.0,
-                        "y_start": 1264.0,
+                        "y_start": 1260.0,
                         "y_end": 2074.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 3616.0,
-                        "y_start": 1264.0,
-                        "y_end": 2074.0,
-                        "length": 810.0
+                        "length": 814.0
                     },
                     {
                         "x": 3886.0,
-                        "y_start": 1264.0,
+                        "y_start": 1260.0,
                         "y_end": 2074.0,
-                        "length": 810.0
+                        "length": 814.0
                     },
                     {
                         "x": 4008.0,
-                        "y_start": 0.0,
-                        "y_end": 1260.0,
-                        "length": 1260.0
-                    },
-                    {
-                        "x": 4012.0,
                         "y_start": 0.0,
                         "y_end": 2000.0,
                         "length": 2000.0
@@ -291,28 +177,10 @@
                         "length": 2000.0
                     },
                     {
-                        "x": 5066.0,
-                        "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 5066.0,
-                        "y_start": 814.0,
-                        "y_end": 1624.0,
-                        "length": 810.0
-                    },
-                    {
                         "x": 5966.0,
                         "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 5966.0,
-                        "y_start": 814.0,
                         "y_end": 1624.0,
-                        "length": 810.0
+                        "length": 1624.0
                     }
                 ]
             }
@@ -374,9 +242,9 @@
             ],
             "used_area_pct": 91.83,
             "cuts": {
-                "horizontal_mm": 14790.0,
-                "vertical_mm": 10020.0,
-                "total_mm": 24810.0,
+                "horizontal_mm": 10814.0,
+                "vertical_mm": 6860.0,
+                "total_mm": 17674.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
@@ -386,126 +254,60 @@
                         "length": 1890.0
                     },
                     {
-                        "y": 754.0,
-                        "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 754.0,
-                        "x_start": 904.0,
-                        "x_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
                         "y": 810.0,
-                        "x_start": 4098.0,
+                        "x_start": 4094.0,
                         "x_end": 4998.0,
-                        "length": 900.0
+                        "length": 904.0
                     },
                     {
                         "y": 900.0,
-                        "x_start": 1894.0,
-                        "x_end": 4094.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 1894.0,
-                        "x_end": 4094.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 4098.0,
+                        "x_start": 1890.0,
                         "x_end": 4998.0,
-                        "length": 900.0
+                        "length": 3108.0
                     },
                     {
                         "y": 1564.0,
                         "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 1564.0,
-                        "x_start": 904.0,
                         "x_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     },
                     {
                         "y": 1714.0,
-                        "x_start": 4098.0,
+                        "x_start": 4094.0,
                         "x_end": 4998.0,
-                        "length": 900.0
+                        "length": 904.0
                     },
                     {
                         "y": 1804.0,
-                        "x_start": 1894.0,
+                        "x_start": 1890.0,
                         "x_end": 4094.0,
-                        "length": 2200.0
+                        "length": 2204.0
                     }
                 ],
                 "cuts_vertical": [
                     {
                         "x": 900.0,
-                        "y_start": 754.0,
+                        "y_start": 750.0,
                         "y_end": 1564.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 904.0,
-                        "y_start": 754.0,
-                        "y_end": 1564.0,
-                        "length": 810.0
+                        "length": 814.0
                     },
                     {
                         "x": 1804.0,
-                        "y_start": 754.0,
+                        "y_start": 750.0,
                         "y_end": 1564.0,
-                        "length": 810.0
+                        "length": 814.0
                     },
                     {
                         "x": 1890.0,
                         "y_start": 0.0,
-                        "y_end": 750.0,
-                        "length": 750.0
-                    },
-                    {
-                        "x": 1894.0,
-                        "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 1894.0,
-                        "y_start": 904.0,
                         "y_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     },
                     {
                         "x": 4094.0,
                         "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 4094.0,
-                        "y_start": 904.0,
                         "y_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 4098.0,
-                        "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 4098.0,
-                        "y_start": 904.0,
-                        "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 1804.0
                     },
                     {
                         "x": 4998.0,
@@ -515,9 +317,9 @@
                     },
                     {
                         "x": 4998.0,
-                        "y_start": 904.0,
+                        "y_start": 900.0,
                         "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 814.0
                     }
                 ]
             }
@@ -579,144 +381,60 @@
             ],
             "used_area_pct": 84.22,
             "cuts": {
-                "horizontal_mm": 13400.0,
-                "vertical_mm": 9990.0,
-                "total_mm": 23390.0,
+                "horizontal_mm": 9428.0,
+                "vertical_mm": 6684.0,
+                "total_mm": 16112.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
                         "y": 900.0,
                         "x_start": 0.0,
-                        "x_end": 2200.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 900.0,
-                        "x_start": 2204.0,
-                        "x_end": 4404.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 904.0,
-                        "x_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 2204.0,
-                        "x_end": 3104.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 3108.0,
-                        "x_end": 4008.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 4012.0,
                         "x_end": 4912.0,
-                        "length": 900.0
+                        "length": 4912.0
                     },
                     {
                         "y": 1714.0,
                         "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 1714.0,
-                        "x_start": 904.0,
                         "x_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     },
                     {
                         "y": 1714.0,
-                        "x_start": 2204.0,
-                        "x_end": 3104.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 1714.0,
-                        "x_start": 3108.0,
-                        "x_end": 4008.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 1714.0,
-                        "x_start": 4012.0,
+                        "x_start": 2200.0,
                         "x_end": 4912.0,
-                        "length": 900.0
+                        "length": 2712.0
                     }
                 ],
                 "cuts_vertical": [
                     {
                         "x": 900.0,
-                        "y_start": 904.0,
+                        "y_start": 900.0,
                         "y_end": 1714.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 904.0,
-                        "y_start": 904.0,
-                        "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 814.0
                     },
                     {
                         "x": 1804.0,
-                        "y_start": 904.0,
+                        "y_start": 900.0,
                         "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 814.0
                     },
                     {
                         "x": 2200.0,
                         "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 2204.0,
-                        "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 2204.0,
-                        "y_start": 904.0,
                         "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 1714.0
                     },
                     {
                         "x": 3104.0,
-                        "y_start": 904.0,
+                        "y_start": 900.0,
                         "y_end": 1714.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 3108.0,
-                        "y_start": 904.0,
-                        "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 814.0
                     },
                     {
                         "x": 4008.0,
-                        "y_start": 904.0,
+                        "y_start": 900.0,
                         "y_end": 1714.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 4012.0,
-                        "y_start": 904.0,
-                        "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 814.0
                     },
                     {
                         "x": 4404.0,
@@ -726,9 +444,9 @@
                     },
                     {
                         "x": 4912.0,
-                        "y_start": 904.0,
+                        "y_start": 900.0,
                         "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 814.0
                     }
                 ]
             }
@@ -797,168 +515,60 @@
             ],
             "used_area_pct": 92.31,
             "cuts": {
-                "horizontal_mm": 14700.0,
-                "vertical_mm": 11700.0,
-                "total_mm": 26400.0,
+                "horizontal_mm": 9824.0,
+                "vertical_mm": 6856.0,
+                "total_mm": 16680.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
                         "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 810.0,
-                        "x_start": 904.0,
-                        "x_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 810.0,
-                        "x_start": 1808.0,
                         "x_end": 2708.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 814.0,
-                        "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 814.0,
-                        "x_start": 904.0,
-                        "x_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 814.0,
-                        "x_start": 1808.0,
-                        "x_end": 2708.0,
-                        "length": 900.0
+                        "length": 2708.0
                     },
                     {
                         "y": 900.0,
-                        "x_start": 2712.0,
+                        "x_start": 2708.0,
                         "x_end": 4912.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 2712.0,
-                        "x_end": 4912.0,
-                        "length": 2200.0
+                        "length": 2204.0
                     },
                     {
                         "y": 1624.0,
                         "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 1624.0,
-                        "x_start": 904.0,
-                        "x_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 1624.0,
-                        "x_start": 1808.0,
                         "x_end": 2708.0,
-                        "length": 900.0
+                        "length": 2708.0
                     },
                     {
                         "y": 1804.0,
-                        "x_start": 2712.0,
+                        "x_start": 2708.0,
                         "x_end": 4912.0,
-                        "length": 2200.0
+                        "length": 2204.0
                     }
                 ],
                 "cuts_vertical": [
                     {
                         "x": 900.0,
                         "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 900.0,
-                        "y_start": 814.0,
                         "y_end": 1624.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 904.0,
-                        "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 904.0,
-                        "y_start": 814.0,
-                        "y_end": 1624.0,
-                        "length": 810.0
+                        "length": 1624.0
                     },
                     {
                         "x": 1804.0,
                         "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 1804.0,
-                        "y_start": 814.0,
                         "y_end": 1624.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 1808.0,
-                        "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 1808.0,
-                        "y_start": 814.0,
-                        "y_end": 1624.0,
-                        "length": 810.0
+                        "length": 1624.0
                     },
                     {
                         "x": 2708.0,
                         "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 2708.0,
-                        "y_start": 814.0,
-                        "y_end": 1624.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 2712.0,
-                        "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 2712.0,
-                        "y_start": 904.0,
                         "y_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     },
                     {
                         "x": 4912.0,
                         "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 4912.0,
-                        "y_start": 904.0,
                         "y_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     }
                 ]
             }
@@ -1013,132 +623,60 @@
             ],
             "used_area_pct": 93.68,
             "cuts": {
-                "horizontal_mm": 12940.0,
-                "vertical_mm": 8550.0,
-                "total_mm": 21490.0,
+                "horizontal_mm": 8686.0,
+                "vertical_mm": 6050.0,
+                "total_mm": 14736.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
                         "y": 900.0,
                         "x_start": 0.0,
-                        "x_end": 2200.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 900.0,
-                        "x_start": 2204.0,
                         "x_end": 4404.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 904.0,
-                        "x_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 1808.0,
-                        "x_end": 2078.0,
-                        "length": 270.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 2204.0,
-                        "x_end": 4404.0,
-                        "length": 2200.0
+                        "length": 4404.0
                     },
                     {
                         "y": 1714.0,
                         "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 1714.0,
-                        "x_start": 904.0,
-                        "x_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 1714.0,
-                        "x_start": 1808.0,
                         "x_end": 2078.0,
-                        "length": 270.0
+                        "length": 2078.0
                     },
                     {
                         "y": 1804.0,
-                        "x_start": 2204.0,
+                        "x_start": 2200.0,
                         "x_end": 4404.0,
-                        "length": 2200.0
+                        "length": 2204.0
                     }
                 ],
                 "cuts_vertical": [
                     {
                         "x": 900.0,
-                        "y_start": 904.0,
+                        "y_start": 900.0,
                         "y_end": 1714.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 904.0,
-                        "y_start": 904.0,
-                        "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 814.0
                     },
                     {
                         "x": 1804.0,
-                        "y_start": 904.0,
+                        "y_start": 900.0,
                         "y_end": 1714.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 1808.0,
-                        "y_start": 904.0,
-                        "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 814.0
                     },
                     {
                         "x": 2078.0,
-                        "y_start": 904.0,
+                        "y_start": 900.0,
                         "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 814.0
                     },
                     {
                         "x": 2200.0,
                         "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 2204.0,
-                        "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 2204.0,
-                        "y_start": 904.0,
                         "y_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     },
                     {
                         "x": 4404.0,
                         "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 4404.0,
-                        "y_start": 904.0,
                         "y_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     }
                 ]
             }
@@ -1186,108 +724,54 @@
             ],
             "used_area_pct": 90.95,
             "cuts": {
-                "horizontal_mm": 12400.0,
-                "vertical_mm": 6930.0,
-                "total_mm": 19330.0,
+                "horizontal_mm": 8412.0,
+                "vertical_mm": 5236.0,
+                "total_mm": 13648.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
                         "y": 900.0,
                         "x_start": 0.0,
-                        "x_end": 2200.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 900.0,
-                        "x_start": 2204.0,
                         "x_end": 4404.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 904.0,
-                        "x_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 2204.0,
-                        "x_end": 4404.0,
-                        "length": 2200.0
+                        "length": 4404.0
                     },
                     {
                         "y": 1714.0,
                         "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 1714.0,
-                        "x_start": 904.0,
                         "x_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     },
                     {
                         "y": 1804.0,
-                        "x_start": 2204.0,
+                        "x_start": 2200.0,
                         "x_end": 4404.0,
-                        "length": 2200.0
+                        "length": 2204.0
                     }
                 ],
                 "cuts_vertical": [
                     {
                         "x": 900.0,
-                        "y_start": 904.0,
+                        "y_start": 900.0,
                         "y_end": 1714.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 904.0,
-                        "y_start": 904.0,
-                        "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 814.0
                     },
                     {
                         "x": 1804.0,
-                        "y_start": 904.0,
+                        "y_start": 900.0,
                         "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 814.0
                     },
                     {
                         "x": 2200.0,
                         "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 2204.0,
-                        "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 2204.0,
-                        "y_start": 904.0,
                         "y_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     },
                     {
                         "x": 4404.0,
                         "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 4404.0,
-                        "y_start": 904.0,
                         "y_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     }
                 ]
             }
@@ -1342,9 +826,9 @@
             ],
             "used_area_pct": 95.17,
             "cuts": {
-                "horizontal_mm": 11730.0,
-                "vertical_mm": 8820.0,
-                "total_mm": 20550.0,
+                "horizontal_mm": 7836.0,
+                "vertical_mm": 5412.0,
+                "total_mm": 13248.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
@@ -1354,34 +838,10 @@
                         "length": 900.0
                     },
                     {
-                        "y": 814.0,
-                        "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
                         "y": 900.0,
-                        "x_start": 904.0,
-                        "x_end": 3104.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 900.0,
-                        "x_start": 3108.0,
+                        "x_start": 900.0,
                         "x_end": 3918.0,
-                        "length": 810.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 904.0,
-                        "x_end": 3104.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 3108.0,
-                        "x_end": 3918.0,
-                        "length": 810.0
+                        "length": 3018.0
                     },
                     {
                         "y": 1624.0,
@@ -1391,77 +851,29 @@
                     },
                     {
                         "y": 1804.0,
-                        "x_start": 904.0,
-                        "x_end": 3104.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 1804.0,
-                        "x_start": 3108.0,
+                        "x_start": 900.0,
                         "x_end": 3918.0,
-                        "length": 810.0
+                        "length": 3018.0
                     }
                 ],
                 "cuts_vertical": [
                     {
                         "x": 900.0,
                         "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 900.0,
-                        "y_start": 814.0,
-                        "y_end": 1624.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 904.0,
-                        "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 904.0,
-                        "y_start": 904.0,
                         "y_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     },
                     {
                         "x": 3104.0,
                         "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 3104.0,
-                        "y_start": 904.0,
                         "y_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 3108.0,
-                        "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 3108.0,
-                        "y_start": 904.0,
-                        "y_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     },
                     {
                         "x": 3918.0,
                         "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 3918.0,
-                        "y_start": 904.0,
                         "y_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     }
                 ]
             }
@@ -1523,138 +935,42 @@
             ],
             "used_area_pct": 84.95,
             "cuts": {
-                "horizontal_mm": 8370.0,
-                "vertical_mm": 9720.0,
-                "total_mm": 18090.0,
+                "horizontal_mm": 5690.0,
+                "vertical_mm": 5682.0,
+                "total_mm": 11372.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
                         "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 810.0,
-                        "x_start": 904.0,
-                        "x_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 810.0,
-                        "x_start": 1808.0,
-                        "x_end": 2708.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 810.0,
-                        "x_start": 2712.0,
                         "x_end": 2982.0,
-                        "length": 270.0
-                    },
-                    {
-                        "y": 814.0,
-                        "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 814.0,
-                        "x_start": 904.0,
-                        "x_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 814.0,
-                        "x_start": 1808.0,
-                        "x_end": 2708.0,
-                        "length": 900.0
+                        "length": 2982.0
                     },
                     {
                         "y": 1624.0,
                         "x_start": 0.0,
-                        "x_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 1624.0,
-                        "x_start": 904.0,
-                        "x_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "y": 1624.0,
-                        "x_start": 1808.0,
                         "x_end": 2708.0,
-                        "length": 900.0
+                        "length": 2708.0
                     }
                 ],
                 "cuts_vertical": [
                     {
                         "x": 900.0,
                         "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 900.0,
-                        "y_start": 814.0,
                         "y_end": 1624.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 904.0,
-                        "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 904.0,
-                        "y_start": 814.0,
-                        "y_end": 1624.0,
-                        "length": 810.0
+                        "length": 1624.0
                     },
                     {
                         "x": 1804.0,
                         "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 1804.0,
-                        "y_start": 814.0,
                         "y_end": 1624.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 1808.0,
-                        "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 1808.0,
-                        "y_start": 814.0,
-                        "y_end": 1624.0,
-                        "length": 810.0
+                        "length": 1624.0
                     },
                     {
                         "x": 2708.0,
                         "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 2708.0,
-                        "y_start": 814.0,
                         "y_end": 1624.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 2712.0,
-                        "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
+                        "length": 1624.0
                     },
                     {
                         "x": 2982.0,
@@ -1701,16 +1017,16 @@
             ],
             "used_area_pct": 75.93,
             "cuts": {
-                "horizontal_mm": 5710.0,
-                "vertical_mm": 3420.0,
-                "total_mm": 9130.0,
+                "horizontal_mm": 4094.0,
+                "vertical_mm": 2618.0,
+                "total_mm": 6712.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
-                        "x_start": 2204.0,
+                        "x_start": 2200.0,
                         "x_end": 2474.0,
-                        "length": 270.0
+                        "length": 274.0
                     },
                     {
                         "y": 1260.0,
@@ -1719,19 +1035,7 @@
                         "length": 2200.0
                     },
                     {
-                        "y": 1264.0,
-                        "x_start": 0.0,
-                        "x_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
                         "y": 1534.0,
-                        "x_start": 0.0,
-                        "x_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "y": 1538.0,
                         "x_start": 0.0,
                         "x_end": 810.0,
                         "length": 810.0
@@ -1746,27 +1050,15 @@
                 "cuts_vertical": [
                     {
                         "x": 810.0,
-                        "y_start": 1264.0,
-                        "y_end": 1534.0,
-                        "length": 270.0
-                    },
-                    {
-                        "x": 810.0,
-                        "y_start": 1538.0,
+                        "y_start": 1260.0,
                         "y_end": 1808.0,
-                        "length": 270.0
+                        "length": 548.0
                     },
                     {
                         "x": 2200.0,
                         "y_start": 0.0,
                         "y_end": 1260.0,
                         "length": 1260.0
-                    },
-                    {
-                        "x": 2204.0,
-                        "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
                     },
                     {
                         "x": 2474.0,
@@ -1813,40 +1105,28 @@
             ],
             "used_area_pct": 97.38,
             "cuts": {
-                "horizontal_mm": 7410.0,
-                "vertical_mm": 5040.0,
-                "total_mm": 12450.0,
+                "horizontal_mm": 5222.0,
+                "vertical_mm": 3428.0,
+                "total_mm": 8650.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
-                        "x_start": 2204.0,
+                        "x_start": 2200.0,
                         "x_end": 2474.0,
-                        "length": 270.0
+                        "length": 274.0
                     },
                     {
                         "y": 900.0,
                         "x_start": 0.0,
-                        "x_end": 2200.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 0.0,
-                        "x_end": 2200.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 2204.0,
                         "x_end": 2474.0,
-                        "length": 270.0
+                        "length": 2474.0
                     },
                     {
                         "y": 1714.0,
-                        "x_start": 2204.0,
+                        "x_start": 2200.0,
                         "x_end": 2474.0,
-                        "length": 270.0
+                        "length": 274.0
                     },
                     {
                         "y": 1804.0,
@@ -1859,26 +1139,8 @@
                     {
                         "x": 2200.0,
                         "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 2200.0,
-                        "y_start": 904.0,
                         "y_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 2204.0,
-                        "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 2204.0,
-                        "y_start": 904.0,
-                        "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 1804.0
                     },
                     {
                         "x": 2474.0,
@@ -1888,9 +1150,9 @@
                     },
                     {
                         "x": 2474.0,
-                        "y_start": 904.0,
+                        "y_start": 900.0,
                         "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 814.0
                     }
                 ]
             }
@@ -1931,40 +1193,28 @@
             ],
             "used_area_pct": 97.38,
             "cuts": {
-                "horizontal_mm": 7410.0,
-                "vertical_mm": 5040.0,
-                "total_mm": 12450.0,
+                "horizontal_mm": 5222.0,
+                "vertical_mm": 3428.0,
+                "total_mm": 8650.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
-                        "x_start": 2204.0,
+                        "x_start": 2200.0,
                         "x_end": 2474.0,
-                        "length": 270.0
+                        "length": 274.0
                     },
                     {
                         "y": 900.0,
                         "x_start": 0.0,
-                        "x_end": 2200.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 0.0,
-                        "x_end": 2200.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 904.0,
-                        "x_start": 2204.0,
                         "x_end": 2474.0,
-                        "length": 270.0
+                        "length": 2474.0
                     },
                     {
                         "y": 1714.0,
-                        "x_start": 2204.0,
+                        "x_start": 2200.0,
                         "x_end": 2474.0,
-                        "length": 270.0
+                        "length": 274.0
                     },
                     {
                         "y": 1804.0,
@@ -1977,26 +1227,8 @@
                     {
                         "x": 2200.0,
                         "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 2200.0,
-                        "y_start": 904.0,
                         "y_end": 1804.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 2204.0,
-                        "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 2204.0,
-                        "y_start": 904.0,
-                        "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 1804.0
                     },
                     {
                         "x": 2474.0,
@@ -2006,9 +1238,9 @@
                     },
                     {
                         "x": 2474.0,
-                        "y_start": 904.0,
+                        "y_start": 900.0,
                         "y_end": 1714.0,
-                        "length": 810.0
+                        "length": 814.0
                     }
                 ]
             }
@@ -2035,19 +1267,13 @@
             ],
             "used_area_pct": 87.58,
             "cuts": {
-                "horizontal_mm": 6600.0,
-                "vertical_mm": 1800.0,
-                "total_mm": 8400.0,
+                "horizontal_mm": 4400.0,
+                "vertical_mm": 1804.0,
+                "total_mm": 6204.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
                         "y": 900.0,
-                        "x_start": 0.0,
-                        "x_end": 2200.0,
-                        "length": 2200.0
-                    },
-                    {
-                        "y": 904.0,
                         "x_start": 0.0,
                         "x_end": 2200.0,
                         "length": 2200.0
@@ -2063,14 +1289,8 @@
                     {
                         "x": 2200.0,
                         "y_start": 0.0,
-                        "y_end": 900.0,
-                        "length": 900.0
-                    },
-                    {
-                        "x": 2200.0,
-                        "y_start": 904.0,
                         "y_end": 1804.0,
-                        "length": 900.0
+                        "length": 1804.0
                     }
                 ]
             }
@@ -2097,16 +1317,16 @@
             ],
             "used_area_pct": 74.24,
             "cuts": {
-                "horizontal_mm": 3100.0,
-                "vertical_mm": 2520.0,
-                "total_mm": 5620.0,
+                "horizontal_mm": 3104.0,
+                "vertical_mm": 1710.0,
+                "total_mm": 4814.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
-                        "x_start": 2204.0,
+                        "x_start": 2200.0,
                         "x_end": 3104.0,
-                        "length": 900.0
+                        "length": 904.0
                     },
                     {
                         "y": 900.0,
@@ -2121,12 +1341,6 @@
                         "y_start": 0.0,
                         "y_end": 900.0,
                         "length": 900.0
-                    },
-                    {
-                        "x": 2204.0,
-                        "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
                     },
                     {
                         "x": 3104.0,
@@ -2160,8 +1374,8 @@
             "used_area_pct": 90.41,
             "cuts": {
                 "horizontal_mm": 900.0,
-                "vertical_mm": 2910.0,
-                "total_mm": 3810.0,
+                "vertical_mm": 2100.0,
+                "total_mm": 3000.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
@@ -2174,12 +1388,6 @@
                 "cuts_vertical": [
                     {
                         "x": 900.0,
-                        "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 904.0,
                         "y_start": 0.0,
                         "y_end": 1050.0,
                         "length": 1050.0
@@ -2216,8 +1424,8 @@
             "used_area_pct": 90.41,
             "cuts": {
                 "horizontal_mm": 900.0,
-                "vertical_mm": 2910.0,
-                "total_mm": 3810.0,
+                "vertical_mm": 2100.0,
+                "total_mm": 3000.0,
                 "seal_mm": 0.0,
                 "cuts_horizontal": [
                     {
@@ -2230,12 +1438,6 @@
                 "cuts_vertical": [
                     {
                         "x": 900.0,
-                        "y_start": 0.0,
-                        "y_end": 810.0,
-                        "length": 810.0
-                    },
-                    {
-                        "x": 904.0,
                         "y_start": 0.0,
                         "y_end": 1050.0,
                         "length": 1050.0
@@ -2452,10 +1654,10 @@
     "total_waste_pct": 9.52,
     "utilization_pct": 89.13,
     "total_material_m2": 107.17,
-    "total_cuts_count": 242,
-    "total_cuts_mm": 247800.0,
-    "total_cuts_horiz_mm": 138050.0,
-    "total_cuts_vert_mm": 109750.0,
+    "total_cuts_count": 109,
+    "total_cuts_mm": 170120.0,
+    "total_cuts_horiz_mm": 97488.0,
+    "total_cuts_vert_mm": 72632.0,
     "total_seal_mm": 0.0,
     "permutations_tested": 23,
     "time_budget_hit": false,
