@@ -42,7 +42,7 @@ final class FormatReducer
         $inventory = [];
         foreach ($this->stockFormats as $fmt) {
             $key = $fmt->width . ':' . $fmt->height;
-            $inventory[$key] = $fmt->stock;
+            $inventory[$key] = $fmt->stock ?? PHP_INT_MAX;   // null = unlimited
         }
         foreach ($sheets as $sheet) {
             $key = $sheet->format->width . ':' . $sheet->format->height;

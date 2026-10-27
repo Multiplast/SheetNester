@@ -11,11 +11,16 @@ namespace Multiplast\SheetNester\Internal;
  */
 class PlacedPiece
 {
+    /**
+     * @param int|null $line Index of the job's piece line this piece came from
+     *                       (null for lookahead simulations).
+     */
     public function __construct(
         public float $x,
         public float $y,
         public float $width,
         public float $height,
         public bool  $rotated,
+        public ?int  $line = null,
     ) {}
 }

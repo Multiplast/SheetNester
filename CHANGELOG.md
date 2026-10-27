@@ -27,6 +27,14 @@
   konvence e-shopu: délka podél komůrek je `height`) se tedy hodnota mění na Σ šířka × 2.
   Rozmístění, řezy ani SVG se nemění. Páska je nově na úrovni desky (`SheetPlan::$sealMm`),
   v legacy poli zůstává v `cuts.seal_mm`.
+- Štítky dílců: `NestingJob::addPiece(..., label: 'okno A')` – štítek nese každý `Placement`
+  i skupina `UnplacedPieces` (neumístěné se seskupují podle rozměru a štítku).
+- Strojové důvody neumístění: `UnplacedPieces::$reasonCode` (`stock` / `too_large`) a anglická
+  `reason()`; legacy pole dál vrací české texty 1.x.
+- Neomezený sklad: `NestingJob::addStock(width, height)` bez `quantity` (nebo `null`);
+  `StockUsage::$remaining` je pak `null`.
+- `NestingResult::toArray()` – čistý tvar pro JSON (`totals`, `sheets[].pieces[].label`,
+  `cuts.count`, `unplaced[].reason_code`); `toLegacyArray()` zůstává pro tvar 1.x.
 
 ## 1.0.1 – 2026-10-27
 

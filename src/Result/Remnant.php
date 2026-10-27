@@ -26,7 +26,7 @@ final class Remnant
     }
 
     /** @return array{x: float, y: float, width: float, height: float} */
-    public function toLegacyArray(): array
+    public function toArray(): array
     {
         return [
             'x'      => $this->x,
@@ -34,5 +34,11 @@ final class Remnant
             'width'  => $this->width,
             'height' => $this->height,
         ];
+    }
+
+    /** @return array{x: float, y: float, width: float, height: float} */
+    public function toLegacyArray(): array
+    {
+        return $this->toArray();
     }
 }

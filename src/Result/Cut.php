@@ -25,6 +25,18 @@ final class Cut
     ) {
     }
 
+    /** @return array{axis: string, position: float, start: float, end: float, length: float} */
+    public function toArray(): array
+    {
+        return [
+            'axis'     => $this->axis,
+            'position' => $this->position,
+            'start'    => $this->start,
+            'end'      => $this->end,
+            'length'   => $this->length,
+        ];
+    }
+
     /**
      * @return array<string, float>  horizontal: y / x_start / x_end / length,
      *                               vertical:   x / y_start / y_end / length

@@ -72,6 +72,40 @@ final class NestingResult
     }
 
     /**
+     * The result as a plain array (JSON-friendly): run info, totals, sheet
+     * plans, stock usage and unplaced pieces. Null stands for "not applicable"
+     * (seal without channels, remnants when marking is off, unlimited stock).
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(): array
+    {
+        return [
+            'objective'       => $this->objective,
+            'passes'          => $this->passes,
+            'time_budget_hit' => $this->timeBudgetHit,
+            'calculation_ms'  => $this->calculationMs,
+            'totals'          => [
+                'sheets'             => count($this->sheets),
+                'material_m2'        => $this->materialM2,
+                'utilization_pct'    => $this->utilizationPct,
+                'waste_pct_avg'      => $this->wastePctAvg,
+                'cut_count'          => $this->cutCount,
+                'cuts_mm'            => $this->cutsMm,
+                'cuts_horizontal_mm' => $this->cutsHorizontalMm,
+                'cuts_vertical_mm'   => $this->cutsVerticalMm,
+                'seal_mm'            => $this->sealMm,
+                'remnant_m2'         => $this->remnantM2,
+                'remnant_pct'        => $this->remnantPct,
+                'unplaced'           => $this->unplacedCount(),
+            ],
+            'sheets'          => array_map(fn(SheetPlan $s) => $s->toArray(), $this->sheets),
+            'stock_usage'     => array_map(fn(StockUsage $u) => $u->toArray(), $this->stockUsage),
+            'unplaced'        => array_map(fn(UnplacedPieces $u) => $u->toArray(), $this->unplaced),
+        ];
+    }
+
+    /**
      * The result in the 1.x array shape of SheetNester::calculate() – key for
      * key and in the same order, so existing consumers and the golden fixtures
      * keep working.

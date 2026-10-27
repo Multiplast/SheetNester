@@ -82,9 +82,10 @@ class SheetNester
         $remnants  = $job->remnants();
         $allPieces = $this->expandAndSort($job->pieces());
 
+        $labels  = array_map(fn(Piece $p) => $p->label, $job->pieces());
         $packer  = new GuillotinePacker($material->kerf, $material->allowsRotation(), $job->stock());
         $finder  = new RemnantFinder($material->kerf, $material->allowsRotation(), $remnants->minSide, $remnants->formats);
-        $builder = new ResultBuilder($job->stock(), $material->kerf, new CutCalculator($material->grain));
+        $builder = new ResultBuilder($job->stock(), $material->kerf, new CutCalculator($material->grain), $labels);
         $solver  = new Solver(
             $packer,
             new SheetEliminator($packer),
@@ -112,18 +113,18 @@ class SheetNester
     }
 
     /**
-     * Expands all pieces into individual [width, height] pairs and sorts them
-     * by area descending (FFD).
+     * Expands all pieces into individual [width, height, line] tuples (line =
+     * index of the job's piece line) and sorts them by area descending (FFD).
      *
      * @param  Piece[] $pieces
-     * @return array<int, array{float, float}>
+     * @return array<int, array{float, float, int}>
      */
     private function expandAndSort(array $pieces): array
     {
         $all = [];
-        foreach ($pieces as $piece) {
+        foreach (array_values($pieces) as $line => $piece) {
             for ($i = 0; $i < $piece->qty; $i++) {
-                $all[] = [$piece->width, $piece->height];
+                $all[] = [$piece->width, $piece->height, $line];
             }
         }
         usort($all, fn($a, $b) => ($b[0] * $b[1]) <=> ($a[0] * $a[1]));

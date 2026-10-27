@@ -11,16 +11,19 @@ namespace Multiplast\SheetNester\Result;
  */
 final class StockUsage
 {
+    /**
+     * @param int|null $remaining Sheets left in stock; null for unlimited stock.
+     */
     public function __construct(
         public float $width,
         public float $height,
         public int   $used,
-        public int   $remaining,
+        public ?int  $remaining,
     ) {
     }
 
-    /** @return array{width: float, height: float, used: int, remaining: int} */
-    public function toLegacyArray(): array
+    /** @return array{width: float, height: float, used: int, remaining: int|null} */
+    public function toArray(): array
     {
         return [
             'width'     => $this->width,
@@ -28,5 +31,11 @@ final class StockUsage
             'used'      => $this->used,
             'remaining' => $this->remaining,
         ];
+    }
+
+    /** @return array{width: float, height: float, used: int, remaining: int|null} */
+    public function toLegacyArray(): array
+    {
+        return $this->toArray();
     }
 }

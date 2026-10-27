@@ -21,7 +21,7 @@ use Multiplast\SheetNester\Options\Search;
  *           search:    new Search(restarts: 50, seed: 42, timeBudgetMs: 8000),
  *           remnants:  Remnants::auto(minSide: 200),
  *       )
- *       ->addStock(2100, 6000, quantity: 10)
+ *       ->addStock(2100, 6000, quantity: 10)            // quantity null = unlimited
  *       ->addPiece(500, 1000, quantity: 3, label: 'window A');
  *
  * All lengths are millimetres; width is the X and height the Y dimension of
@@ -61,17 +61,17 @@ final class NestingJob
     /**
      * Registers an available stock sheet format.
      *
-     * @param float $width    Sheet width in mm.
-     * @param float $height   Sheet height in mm.
-     * @param int   $quantity Number of sheets available.
+     * @param float    $width    Sheet width in mm.
+     * @param float    $height   Sheet height in mm.
+     * @param int|null $quantity Number of sheets available; null = unlimited.
      */
-    public function addStock(float $width, float $height, int $quantity): self
+    public function addStock(float $width, float $height, ?int $quantity = null): self
     {
         if (!is_finite($width) || !is_finite($height) || $width <= 0 || $height <= 0) {
             throw new \InvalidArgumentException('Stock format dimensions must be positive numbers.');
         }
-        if ($quantity < 1) {
-            throw new \InvalidArgumentException('Stock quantity must be at least 1.');
+        if ($quantity !== null && $quantity < 1) {
+            throw new \InvalidArgumentException('Stock quantity must be at least 1 (or null for unlimited).');
         }
         $this->stock[] = new StockFormat($width, $height, $quantity);
         return $this;

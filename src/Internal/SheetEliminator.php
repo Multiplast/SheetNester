@@ -74,7 +74,7 @@ final class SheetEliminator
 
             $allPlaced = true;
             foreach ($pieces as $p) {
-                if (!$this->packer->placeOnExisting($targets, $p->width, $p->height)) {
+                if (!$this->packer->placeOnExisting($targets, $p->width, $p->height, $p->line)) {
                     $allPlaced = false;
                     break;
                 }

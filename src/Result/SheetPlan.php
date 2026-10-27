@@ -34,6 +34,24 @@ final class SheetPlan
     ) {
     }
 
+    /** @return array<string, mixed> */
+    public function toArray(): array
+    {
+        return [
+            'index'      => $this->index,
+            'width'      => $this->width,
+            'height'     => $this->height,
+            'used_pct'   => $this->usedPct,
+            'seal_mm'    => $this->sealMm,
+            'pieces'     => array_map(fn(Placement $p) => $p->toArray(), $this->pieces),
+            'cuts'       => $this->cuts->toArray(),
+            'remnants'   => $this->remnants === null
+                ? null
+                : array_map(fn(Remnant $r) => $r->toArray(), $this->remnants),
+            'remnant_m2' => $this->remnantM2,
+        ];
+    }
+
     /** @return array<string, mixed>  One entry of the 1.x $result['sheets']. */
     public function toLegacyArray(): array
     {

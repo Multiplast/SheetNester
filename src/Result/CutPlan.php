@@ -30,6 +30,19 @@ final class CutPlan
         return count($this->horizontal) + count($this->vertical);
     }
 
+    /** @return array<string, mixed> */
+    public function toArray(): array
+    {
+        return [
+            'count'         => $this->count(),
+            'horizontal_mm' => $this->horizontalMm,
+            'vertical_mm'   => $this->verticalMm,
+            'total_mm'      => $this->totalMm,
+            'horizontal'    => array_map(fn(Cut $c) => $c->toArray(), $this->horizontal),
+            'vertical'      => array_map(fn(Cut $c) => $c->toArray(), $this->vertical),
+        ];
+    }
+
     /**
      * @param float $sealMm  The sheet's seal length – 1.x reported it inside 'cuts'.
      * @return array<string, mixed>

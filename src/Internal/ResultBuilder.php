@@ -21,12 +21,14 @@ use Multiplast\SheetNester\Result\UnplacedPieces;
 final class ResultBuilder
 {
     /**
-     * @param StockFormat[] $stockFormats Registered formats (for stock usage).
+     * @param StockFormat[]           $stockFormats Registered formats (for stock usage).
+     * @param array<int, string|null> $lineLabels   Piece label per job line index.
      */
     public function __construct(
         private array         $stockFormats,
         private float         $kerf,
         private CutCalculator $cuts,
+        private array         $lineLabels = [],
     ) {
     }
 
@@ -34,7 +36,8 @@ final class ResultBuilder
      * Assembles the result of a completed nesting run.
      *
      * @param Sheet[] $sheets
-     * @param array   $unplaced  Packer output: list of {width, height, qty, reason}.
+     * @param array<int, array{width: float, height: float, line: int, reason: string}> $unplaced
+     *        Packer output, one entry per piece.
      */
     public function build(array $sheets, array $unplaced): NestingResult
     {
@@ -42,7 +45,14 @@ final class ResultBuilder
         foreach ($sheets as $sheet) {
             $placements = [];
             foreach ($sheet->pieces as $p) {
-                $placements[] = new Placement($p->x, $p->y, $p->width, $p->height, $p->rotated);
+                $placements[] = new Placement(
+                    $p->x,
+                    $p->y,
+                    $p->width,
+                    $p->height,
+                    $p->rotated,
+                    $p->line !== null ? ($this->lineLabels[$p->line] ?? null) : null
+                );
             }
             $plans[] = new SheetPlan(
                 $sheet->index,
@@ -62,9 +72,13 @@ final class ResultBuilder
         // meaningless (full stock), and released slots are only tracked in the
         // reduction's local inventory.
         $stockByKey = [];
+        $unlimited  = [];
         foreach ($this->stockFormats as $fmt) {
             $key = $fmt->width . 'x' . $fmt->height;
-            $stockByKey[$key] = ($stockByKey[$key] ?? 0) + $fmt->stock;
+            if ($fmt->isUnlimited()) {
+                $unlimited[$key] = true;
+            }
+            $stockByKey[$key] = ($stockByKey[$key] ?? 0) + ($fmt->stock ?? 0);
         }
 
         $usageMap = [];
@@ -85,13 +99,24 @@ final class ResultBuilder
                 $u['width'],
                 $u['height'],
                 $u['used'],
-                max(0, ($stockByKey[$key] ?? 0) - $u['used'])
+                isset($unlimited[$key]) ? null : max(0, ($stockByKey[$key] ?? 0) - $u['used'])
             );
         }
 
-        $unplacedOut = [];
+        // Unplaced pieces grouped by size + label (+ reason, which follows from
+        // the size) in first-seen order – identical to the 1.x grouping when
+        // no labels are used.
+        $groups = [];
         foreach ($unplaced as $u) {
-            $unplacedOut[] = new UnplacedPieces($u['width'], $u['height'], $u['qty'], $u['reason']);
+            $label = $this->lineLabels[$u['line']] ?? null;
+            foreach ($groups as $g) {
+                if ($g->width === $u['width'] && $g->height === $u['height']
+                    && $g->label === $label && $g->reasonCode === $u['reason']) {
+                    $g->qty++;
+                    continue 2;
+                }
+            }
+            $groups[] = new UnplacedPieces($u['width'], $u['height'], 1, $u['reason'], $label);
         }
 
         // Totals – from the per-sheet (rounded) values, exactly like 1.x.
@@ -121,7 +146,7 @@ final class ResultBuilder
         return new NestingResult(
             sheets:           $plans,
             stockUsage:       $usage,
-            unplaced:         $unplacedOut,
+            unplaced:         $groups,
             wastePctAvg:      $totalWaste,
             utilizationPct:   $totalMaterialM2 > 0
                 ? round($totalPieceM2 / $totalMaterialM2 * 100, 2)

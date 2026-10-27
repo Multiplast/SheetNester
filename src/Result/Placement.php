@@ -13,12 +13,26 @@ namespace Multiplast\SheetNester\Result;
 final class Placement
 {
     public function __construct(
-        public float $x,
-        public float $y,
-        public float $width,
-        public float $height,
-        public bool  $rotated,
+        public float   $x,
+        public float   $y,
+        public float   $width,
+        public float   $height,
+        public bool    $rotated,
+        public ?string $label = null,
     ) {
+    }
+
+    /** @return array<string, mixed> */
+    public function toArray(): array
+    {
+        return [
+            'x'       => $this->x,
+            'y'       => $this->y,
+            'width'   => $this->width,
+            'height'  => $this->height,
+            'rotated' => $this->rotated,
+            'label'   => $this->label,
+        ];
     }
 
     /** @return array{width: float, height: float, x: float, y: float, rotated: bool} */

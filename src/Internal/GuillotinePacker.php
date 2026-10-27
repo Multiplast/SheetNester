@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Multiplast\SheetNester\Internal;
 
+use Multiplast\SheetNester\Result\UnplacedPieces;
+
 /**
  * Greedy guillotine packer – Best Area Fit placement with Longer Axis Split
  * and lookahead format selection when a new sheet has to be opened.
@@ -42,43 +44,30 @@ final class GuillotinePacker
      * choose the best-fitting format from all available formats (sorted by
      * utilisation ratio; ties broken by area ascending = prefer smaller).
      *
-     * @param  array<int, array{float, float}> $allPieces
-     * @return array{Sheet[], array}           [sheets, unplaced]
+     * @param  array<int, array{float, float, int}> $allPieces  [width, height, line] per piece.
+     * @return array{Sheet[], array<int, array{width: float, height: float, line: int, reason: string}>}
+     *         [sheets, unplaced pieces (one entry per piece, not grouped)]
      */
     public function pack(array $allPieces): array
     {
-        // Deep-copy format inventory so each run is fully independent
+        // Private copy of the format inventory so each run is fully independent
         $formats = [];
         foreach ($this->stockFormats as $fmt) {
-            $copy            = new StockFormat($fmt->width, $fmt->height, $fmt->stock);
-            $copy->remaining = $fmt->stock;
-            $formats[]       = $copy;
+            $formats[] = new StockFormat($fmt->width, $fmt->height, $fmt->stock);
         }
 
         $sheets   = [];
         $unplaced = [];
 
-        foreach ($allPieces as $idx => [$pw, $ph]) {
-            if (!$this->placeOnExisting($sheets, $pw, $ph)) {
-                if (!$this->openNewSheet($sheets, $formats, $pw, $ph, $allPieces, $idx + 1)) {
-                    $reason = $this->diagnoseFailure($pw, $ph, $formats);
-                    $found  = false;
-                    foreach ($unplaced as &$u) {
-                        if ($u['width'] === $pw && $u['height'] === $ph) {
-                            $u['qty']++;
-                            $found = true;
-                            break;
-                        }
-                    }
-                    unset($u);
-                    if (!$found) {
-                        $unplaced[] = [
-                            'width'  => $pw,
-                            'height' => $ph,
-                            'qty'    => 1,
-                            'reason' => $reason,
-                        ];
-                    }
+        foreach ($allPieces as $idx => [$pw, $ph, $line]) {
+            if (!$this->placeOnExisting($sheets, $pw, $ph, $line)) {
+                if (!$this->openNewSheet($sheets, $formats, $pw, $ph, $line, $allPieces, $idx + 1)) {
+                    $unplaced[] = [
+                        'width'  => $pw,
+                        'height' => $ph,
+                        'line'   => $line,
+                        'reason' => $this->diagnoseFailure($pw, $ph, $formats),
+                    ];
                 }
             }
         }
@@ -91,7 +80,7 @@ final class GuillotinePacker
      *
      * @param Sheet[] $sheets
      */
-    public function placeOnExisting(array &$sheets, float $pw, float $ph): bool
+    public function placeOnExisting(array &$sheets, float $pw, float $ph, ?int $line = null): bool
     {
         $bestSheet   = null;
         $bestRect    = null;
@@ -109,7 +98,7 @@ final class GuillotinePacker
         }
 
         if ($bestSheet !== null && $bestRect !== null) {
-            $this->placePiece($bestSheet, $bestRect, $pw, $ph, $bestRotated);
+            $this->placePiece($bestSheet, $bestRect, $pw, $ph, $bestRotated, $line);
             return true;
         }
 
@@ -127,7 +116,7 @@ final class GuillotinePacker
 
         $copy->pieces = [];
         foreach ($sheet->pieces as $p) {
-            $copy->pieces[] = new PlacedPiece($p->x, $p->y, $p->width, $p->height, $p->rotated);
+            $copy->pieces[] = new PlacedPiece($p->x, $p->y, $p->width, $p->height, $p->rotated, $p->line);
         }
 
         $copy->freeRects = [];
@@ -149,13 +138,20 @@ final class GuillotinePacker
      * Because PHP arrays of objects share the same instances, modifying
      * $format->remaining on a sorted copy also updates the original $formats.
      *
-     * @param Sheet[]                         $sheets
-     * @param StockFormat[]                   $formats   Mutable inventory copies.
-     * @param array<int, array{float, float}> $allPieces All pieces of the pass.
-     * @param int                             $fromIdx   Index of the first not-yet-processed piece.
+     * @param Sheet[]                              $sheets
+     * @param StockFormat[]                        $formats   Mutable inventory copies.
+     * @param array<int, array{float, float, int}> $allPieces All pieces of the pass.
+     * @param int                                  $fromIdx   Index of the first not-yet-processed piece.
      */
-    private function openNewSheet(array &$sheets, array &$formats, float $pw, float $ph, array $allPieces, int $fromIdx): bool
-    {
+    private function openNewSheet(
+        array &$sheets,
+        array &$formats,
+        float $pw,
+        float $ph,
+        ?int  $line,
+        array $allPieces,
+        int   $fromIdx
+    ): bool {
         $candidates = [];
 
         foreach ($formats as $format) {
@@ -208,7 +204,7 @@ final class GuillotinePacker
             return false;
         }
 
-        $this->placePiece($sheet, $rect, $pw, $ph, $actualRotated ?? $best['rotated']);
+        $this->placePiece($sheet, $rect, $pw, $ph, $actualRotated ?? $best['rotated'], $line);
         return true;
     }
 
@@ -220,7 +216,7 @@ final class GuillotinePacker
      *
      * Returns placed_area / format_area  (utilisation ratio, 0–1).
      *
-     * @param array<int, array{float, float}> $allPieces
+     * @param array<int, array{float, float, int}> $allPieces
      */
     private function scoreLookahead(
         StockFormat $format,
@@ -290,14 +286,14 @@ final class GuillotinePacker
     /**
      * Places a piece into a free rectangle using Guillotine Cut (Longer Axis Split).
      */
-    private function placePiece(Sheet $sheet, FreeRect $usedRect, float $pw, float $ph, bool $rotated): void
+    private function placePiece(Sheet $sheet, FreeRect $usedRect, float $pw, float $ph, bool $rotated, ?int $line = null): void
     {
         $actualW = $rotated ? $ph : $pw;
         $actualH = $rotated ? $pw : $ph;
         $footW   = $actualW + $this->kerf;
         $footH   = $actualH + $this->kerf;
 
-        $sheet->pieces[] = new PlacedPiece($usedRect->x, $usedRect->y, $actualW, $actualH, $rotated);
+        $sheet->pieces[] = new PlacedPiece($usedRect->x, $usedRect->y, $actualW, $actualH, $rotated, $line);
 
         $sheet->freeRects = array_values(array_filter(
             $sheet->freeRects,
@@ -338,7 +334,8 @@ final class GuillotinePacker
     /**
      * Determines why a piece could not be placed given a specific format list.
      *
-     * @param StockFormat[] $formats
+     * @param  StockFormat[] $formats
+     * @return string  UnplacedPieces::REASON_STOCK | UnplacedPieces::REASON_TOO_LARGE
      */
     private function diagnoseFailure(float $pw, float $ph, array $formats): string
     {
@@ -348,9 +345,9 @@ final class GuillotinePacker
             $fitsNormal  = ($pw <= $fmt->width)  && ($ph <= $fmt->height);
             $fitsRotated = ($ph <= $fmt->width)  && ($pw <= $fmt->height);
             if ($fitsNormal || ($this->allowRotation && $fitsRotated)) {
-                return 'Nedostatek skladových zásob.';
+                return UnplacedPieces::REASON_STOCK;
             }
         }
-        return 'Kus je větší než všechny dostupné formáty desek.';
+        return UnplacedPieces::REASON_TOO_LARGE;
     }
 }
