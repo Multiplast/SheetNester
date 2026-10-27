@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace Multiplast\SheetNester\Tests;
 
-use Multiplast\SheetNester\SheetNester;
+use Multiplast\SheetNester\Grain;
+use Multiplast\SheetNester\NestingJob;
+use Multiplast\SheetNester\Options\Material;
+use Multiplast\SheetNester\Options\Remnants;
+use Multiplast\SheetNester\Options\Search;
+use Multiplast\SheetNester\Render\PdfReport;
+use Multiplast\SheetNester\Result\NestingResult;
 use Multiplast\SheetNester\SheetNesterPdf;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Smoke tests for the PDF report. They need mpdf/mpdf (a dev dependency) and
- * are skipped when it is not installed.
+ * Smoke tests for the PDF rendering. They need mpdf/mpdf (a dev dependency)
+ * and are skipped when it is not installed.
  */
 final class PdfTest extends TestCase
 {
@@ -23,11 +29,11 @@ final class PdfTest extends TestCase
 
     public function testGenerateReturnsAPdfDocument(): void
     {
-        $pdf = new SheetNesterPdf(self::sampleResult(), [
-            'title'        => 'Nářezový plán č. 1 <test>',
-            'subtitle'     => 'Zákazník: Test & spol.',
+        $pdf = new PdfReport(self::sampleResult(), [
+            'title'        => 'Cutting plan no. 1 <test>',
+            'subtitle'     => 'Customer: Test & Co.',
             'material'     => 'PC 10 mm',
-            'company_name' => 'ACME s.r.o.',
+            'company_name' => 'ACME Ltd.',
         ]);
 
         $binary = $pdf->generate();
@@ -40,7 +46,7 @@ final class PdfTest extends TestCase
     {
         $path = tempnam(sys_get_temp_dir(), 'sheetnester-');
         try {
-            (new SheetNesterPdf(self::sampleResult()))->save($path);
+            (new PdfReport(self::sampleResult(), [], PdfReport::LABELS_CS))->save($path);
 
             self::assertFileExists($path);
             self::assertStringStartsWith('%PDF-', (string) file_get_contents($path));
@@ -49,16 +55,26 @@ final class PdfTest extends TestCase
         }
     }
 
-    /** @return array<string, mixed> */
-    private static function sampleResult(): array
+    public function testLegacyWrapperStillGenerates(): void
     {
-        $nester = new SheetNester(kerf: 4, grainDirection: 'vertical', remnantMode: SheetNester::REMNANT_AUTO);
-        $nester->addStockFormat(6000, 2100, 2);
-        $nester->addStockFormat(3000, 2100, 2);
-        $nester->addPiece(2200, 900, 5);
-        $nester->addPiece(900, 810, 4);
-        $nester->addPiece(7000, 100, 1);   // unplaced – exercises the warning table
+        $binary = (new SheetNesterPdf(self::sampleResult()->toLegacyArray(), ['title' => 'Plán']))->generate();
 
-        return $nester->calculate();
+        self::assertStringStartsWith('%PDF-', $binary);
+    }
+
+    private static function sampleResult(): NestingResult
+    {
+        $job = NestingJob::create(
+            new Material(kerf: 4, grain: Grain::ALONG_HEIGHT),
+            search:   Search::singlePass(),
+            remnants: Remnants::auto(200),
+        )
+            ->addStock(6000, 2100, 2)
+            ->addStock(3000, 2100, 2)
+            ->addPiece(2200, 900, 5, 'A')
+            ->addPiece(900, 810, 4)
+            ->addPiece(7000, 100, 1);   // unplaced – exercises the warning table
+
+        return (new \Multiplast\SheetNester\SheetNester())->solve($job);
     }
 }

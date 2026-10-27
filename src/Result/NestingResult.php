@@ -61,6 +61,153 @@ final class NestingResult
     ) {
     }
 
+    /**
+     * Rebuilds a result from toArray() output (e.g. JSON stored in a database).
+     *
+     * @param array<string, mixed> $a
+     */
+    public static function fromArray(array $a): self
+    {
+        $cut = static fn(array $c): Cut => new Cut(
+            (string) $c['axis'], (float) $c['position'], (float) $c['start'], (float) $c['end'], (float) $c['length']
+        );
+
+        $sheets = [];
+        foreach ($a['sheets'] as $s) {
+            $plan = new SheetPlan(
+                (int) $s['index'],
+                (float) $s['width'],
+                (float) $s['height'],
+                array_map(static fn(array $p): Placement => new Placement(
+                    (float) $p['x'], (float) $p['y'], (float) $p['width'], (float) $p['height'],
+                    (bool) $p['rotated'], $p['label'] ?? null
+                ), $s['pieces']),
+                (float) $s['used_pct'],
+                new CutPlan(
+                    (float) $s['cuts']['horizontal_mm'],
+                    (float) $s['cuts']['vertical_mm'],
+                    (float) $s['cuts']['total_mm'],
+                    array_map($cut, $s['cuts']['horizontal']),
+                    array_map($cut, $s['cuts']['vertical'])
+                ),
+                isset($s['seal_mm']) ? (float) $s['seal_mm'] : null
+            );
+            if (isset($s['remnants'])) {
+                $plan->remnants  = array_map(static fn(array $r): Remnant => new Remnant(
+                    (float) $r['x'], (float) $r['y'], (float) $r['width'], (float) $r['height']
+                ), $s['remnants']);
+                $plan->remnantM2 = isset($s['remnant_m2']) ? (float) $s['remnant_m2'] : null;
+            }
+            $sheets[] = $plan;
+        }
+
+        $t      = $a['totals'];
+        $result = new self(
+            $sheets,
+            array_map(static fn(array $u): StockUsage => new StockUsage(
+                (float) $u['width'], (float) $u['height'], (int) $u['used'],
+                isset($u['remaining']) ? (int) $u['remaining'] : null
+            ), $a['stock_usage']),
+            array_map(static fn(array $u): UnplacedPieces => new UnplacedPieces(
+                (float) $u['width'], (float) $u['height'], (int) $u['qty'], (string) $u['reason_code'], $u['label'] ?? null
+            ), $a['unplaced']),
+            (float) $t['waste_pct_avg'],
+            (float) $t['utilization_pct'],
+            (float) $t['material_m2'],
+            (int) $t['cut_count'],
+            (float) $t['cuts_mm'],
+            (float) $t['cuts_horizontal_mm'],
+            (float) $t['cuts_vertical_mm'],
+            isset($t['seal_mm']) ? (float) $t['seal_mm'] : null
+        );
+        $result->objective     = (string) $a['objective'];
+        $result->passes        = (int) $a['passes'];
+        $result->timeBudgetHit = (bool) $a['time_budget_hit'];
+        $result->calculationMs = (float) $a['calculation_ms'];
+        $result->remnantM2     = isset($t['remnant_m2']) ? (float) $t['remnant_m2'] : null;
+        $result->remnantPct    = isset($t['remnant_pct']) ? (float) $t['remnant_pct'] : null;
+
+        return $result;
+    }
+
+    /**
+     * Rebuilds a result from the 1.x array of SheetNester::calculate() /
+     * toLegacyArray(). The 1.x array cannot tell "no channels" from a seal
+     * length of 0, so sealMm comes back as 0.0 rather than null in that case.
+     *
+     * @param array<string, mixed> $a
+     */
+    public static function fromLegacyArray(array $a): self
+    {
+        $reasonCodes = [
+            'Nedostatek skladových zásob.'                       => UnplacedPieces::REASON_STOCK,
+            'Kus je větší než všechny dostupné formáty desek.'   => UnplacedPieces::REASON_TOO_LARGE,
+        ];
+
+        $sheets = [];
+        foreach ($a['sheets'] as $s) {
+            $c    = $s['cuts'];
+            $plan = new SheetPlan(
+                (int) $s['sheet_index'],
+                (float) $s['stock_width'],
+                (float) $s['stock_height'],
+                array_map(static fn(array $p): Placement => new Placement(
+                    (float) $p['x'], (float) $p['y'], (float) $p['width'], (float) $p['height'], (bool) $p['rotated']
+                ), $s['pieces']),
+                (float) $s['used_area_pct'],
+                new CutPlan(
+                    (float) $c['horizontal_mm'],
+                    (float) $c['vertical_mm'],
+                    (float) $c['total_mm'],
+                    array_map(static fn(array $x): Cut => new Cut(
+                        Cut::HORIZONTAL, (float) $x['y'], (float) $x['x_start'], (float) $x['x_end'], (float) $x['length']
+                    ), $c['cuts_horizontal']),
+                    array_map(static fn(array $x): Cut => new Cut(
+                        Cut::VERTICAL, (float) $x['x'], (float) $x['y_start'], (float) $x['y_end'], (float) $x['length']
+                    ), $c['cuts_vertical'])
+                ),
+                (float) ($c['seal_mm'] ?? 0.0)
+            );
+            if (array_key_exists('remnants', $s)) {
+                $plan->remnants  = array_map(static fn(array $r): Remnant => new Remnant(
+                    (float) $r['x'], (float) $r['y'], (float) $r['width'], (float) $r['height']
+                ), $s['remnants']);
+                $plan->remnantM2 = (float) ($s['remnant_area_m2'] ?? 0.0);
+            }
+            $sheets[] = $plan;
+        }
+
+        $result = new self(
+            $sheets,
+            array_map(static fn(array $u): StockUsage => new StockUsage(
+                (float) $u['width'], (float) $u['height'], (int) $u['used'],
+                isset($u['remaining']) ? (int) $u['remaining'] : null
+            ), $a['stock_usage']),
+            array_map(static fn(array $u): UnplacedPieces => new UnplacedPieces(
+                (float) $u['width'], (float) $u['height'], (int) $u['qty'],
+                $reasonCodes[$u['reason']] ?? (string) $u['reason']
+            ), $a['unplaced_pieces']),
+            (float) $a['total_waste_pct'],
+            (float) $a['utilization_pct'],
+            (float) $a['total_material_m2'],
+            (int) $a['total_cuts_count'],
+            (float) $a['total_cuts_mm'],
+            (float) $a['total_cuts_horiz_mm'],
+            (float) $a['total_cuts_vert_mm'],
+            (float) ($a['total_seal_mm'] ?? 0.0)
+        );
+        $result->objective     = (string) ($a['strategy'] ?? '');
+        $result->passes        = (int) ($a['permutations_tested'] ?? 1);
+        $result->timeBudgetHit = (bool) ($a['time_budget_hit'] ?? false);
+        $result->calculationMs = (float) ($a['calculation_time_ms'] ?? 0.0);
+        if (array_key_exists('total_remnant_m2', $a)) {
+            $result->remnantM2  = (float) $a['total_remnant_m2'];
+            $result->remnantPct = (float) ($a['total_remnant_pct'] ?? 0.0);
+        }
+
+        return $result;
+    }
+
     /** Number of pieces that could not be placed. */
     public function unplacedCount(): int
     {

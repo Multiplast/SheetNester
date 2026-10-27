@@ -322,7 +322,7 @@ class SheetNester
             throw new \OutOfRangeException("Sheet index {$sheetIndex} does not exist.");
         }
 
-        return (new SvgRenderer())->render($this->lastResult->sheets[$sheetIndex]);
+        return (new SvgRenderer(SvgRenderer::LABELS_CS))->render($this->lastResult->sheets[$sheetIndex]);
     }
 
     private function requireLegacy(): void

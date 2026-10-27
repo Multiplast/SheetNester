@@ -92,9 +92,10 @@ final class JobApiTest extends TestCase
     {
         $result = (new SheetNester())->solve(self::referenceJob(new Search(restarts: 200, seed: 42)));
 
+        // the golden SVG fixtures are rendered with the Czech labels (1.x toSvg() look)
         self::assertSame(
             (string) file_get_contents(self::FIXTURE_DIR . '/min_waste-r200.sheet0.svg'),
-            (new SvgRenderer())->render($result->sheets[0])
+            (new SvgRenderer(SvgRenderer::LABELS_CS))->render($result->sheets[0])
         );
     }
 

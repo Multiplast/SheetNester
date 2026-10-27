@@ -35,6 +35,17 @@
   `StockUsage::$remaining` je pak `null`.
 - `NestingResult::toArray()` – čistý tvar pro JSON (`totals`, `sheets[].pieces[].label`,
   `cuts.count`, `unplaced[].reason_code`); `toLegacyArray()` zůstává pro tvar 1.x.
+- `Render\SvgRenderer` je veřejný: kreslí `SheetPlan`, texty přes mapu (`LABELS_EN` výchozí,
+  `LABELS_CS`), zobrazuje štítky dílců, a výstup je validní XML – 1.x `toSvg()` vkládalo
+  `&nbsp;`, takže samostatný `.svg` soubor se nedal otevřít (nyní `&#160;`).
+- `Render\PdfReport` nahrazuje `SheetNesterPdf`: bere `NestingResult`, texty přes mapu
+  (`LABELS_EN` / `LABELS_CS`), `html()` bez mPDF, sloupce rozměrů v pořadí zadání
+  (šířka, výška – 1.x tisklo „Délka“ = `height` jako první), nové řádky řezy a páska,
+  sloupec štítků, `∞` pro neomezený sklad, meta klíče `company_id` / `company_vat_id`.
+  `SheetNesterPdf` zůstává jako deprecated obal (bere pole 1.x i `NestingResult`, mapuje
+  `company_ico` / `company_dic`, používá české texty).
+- `NestingResult::fromArray()` a `fromLegacyArray()` – obnovení výsledku z uloženého JSONu
+  (např. pro pozdější PDF).
 
 ## 1.0.1 – 2026-10-27
 
