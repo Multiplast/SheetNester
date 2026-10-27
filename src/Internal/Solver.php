@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace Multiplast\SheetNester\Internal;
 
-use Multiplast\SheetNester\SheetNester;
+use Multiplast\SheetNester\Options\Search;
+use Multiplast\SheetNester\Result\NestingResult;
 
 /**
  * Runs the nesting pipeline (pack → eliminate sheets → reduce formats → build
  * result) over one or many piece orderings and keeps the best result.
  *
- * Strategies share the same pipeline; smallest_fit runs it once, the others
- * repeat it over a portfolio of orderings and random restarts and compare the
- * candidates by (fewest unplaced, lowest primary cost, tie-break).
+ * All objectives share the same pipeline; Search decides how many orderings
+ * are tried and the Scorer how candidates compare: fewest unplaced pieces,
+ * then lowest primary cost, then the objective's tie-break.
  *
  * @internal
  */
@@ -23,54 +24,50 @@ final class Solver
         private SheetEliminator  $eliminator,
         private FormatReducer    $reducer,
         private ResultBuilder    $builder,
-        private Objective        $objective,
-        private string           $strategy,
-        private int              $restarts,
-        private ?int             $seed,
-        private ?float           $timeBudgetMs,
+        private Scorer           $scorer,
+        private Search           $search,
     ) {
     }
 
     /**
      * @param  array<int, array{float, float}> $allPieces  FFD-sorted expanded pieces.
-     * @return array{array, Sheet[]}  [result incl. permutations_tested / time_budget_hit, sheets]
+     * @return array{NestingResult, Sheet[]}  [result incl. passes / timeBudgetHit, sheets]
      */
     public function solve(array $allPieces): array
     {
-        if ($this->strategy === SheetNester::STRATEGY_SMALLEST_FIT) {
+        if ($this->search->isSinglePass()) {
             return $this->solveSinglePass($allPieces);
         }
         return $this->solveMultiPass($allPieces);
     }
 
     /**
-     * Single pass in FFD order. restarts/seed/timeBudget are not used.
+     * Single pass in FFD order. seed and timeBudget are not used.
      *
      * @param array<int, array{float, float}> $allPieces
      */
     private function solveSinglePass(array $allPieces): array
     {
         [$result, $sheets] = $this->runPipeline($allPieces);
-        $result['permutations_tested'] = 1;
-        $result['time_budget_hit']     = false;
+        $result->passes        = 1;
+        $result->timeBudgetHit = false;
         return [$result, $sheets];
     }
 
     /**
-     * Multi-pass pipeline shared by min_waste, min_cuts and best_remnant –
-     * repeated over multiple piece orderings.
+     * Multi-pass: the pipeline repeated over multiple piece orderings.
      *
      * Orderings tested (duplicates skipped via a canonical key):
      *   pass 0        – canonical FFD (area descending, always runs),
-     *   passes 1..4   – deterministic portfolio: max side / width / height /
+     *   portfolio     – deterministic orderings: max side / width / height /
      *                   perimeter descending (cheap, often beats random),
      *   further       – `restarts` random shuffles (seeded → reproducible).
      *
      * For each ordering the pipeline runs and the candidate is evaluated:
      * primary = fewest unplaced pieces, secondary = lowest primary cost
-     * (Objective::primaryCost); on a primary-cost tie min_cuts / best_remnant
-     * apply their tie-break (Objective::tiebreakScore, computed lazily only
-     * for tied candidates). The best result across all orderings is kept.
+     * (Scorer::primaryCost); on a primary-cost tie min_cuts / best_remnant
+     * apply their tie-break (Scorer::tiebreakScore, computed lazily only for
+     * tied candidates). The best result across all orderings is kept.
      *
      * @param array<int, array{float, float}> $allPieces
      */
@@ -82,13 +79,13 @@ final class Solver
         $bestTiebreak = null;
         $tested       = 0;
         $budgetHit    = false;
-        $deadline     = $this->timeBudgetMs !== null
-            ? microtime(true) + $this->timeBudgetMs / 1000
+        $deadline     = $this->search->timeBudgetMs !== null
+            ? microtime(true) + $this->search->timeBudgetMs / 1000
             : null;
 
         // If a seed is set, initialise the RNG once so results are reproducible.
-        if ($this->seed !== null) {
-            mt_srand($this->seed);
+        if ($this->search->seed !== null) {
+            mt_srand($this->search->seed);
         }
 
         // Pass 0 = canonical FFD, then deterministic portfolio, then shuffles.
@@ -96,14 +93,16 @@ final class Solver
         $orderings = [$allPieces];
         $seen      = [$this->orderingKey($allPieces) => true];
 
-        foreach ($this->deterministicOrderings($allPieces) as $ordered) {
-            $key = $this->orderingKey($ordered);
-            if (!isset($seen[$key])) {
-                $seen[$key]  = true;
-                $orderings[] = $ordered;
+        if ($this->search->portfolio) {
+            foreach ($this->deterministicOrderings($allPieces) as $ordered) {
+                $key = $this->orderingKey($ordered);
+                if (!isset($seen[$key])) {
+                    $seen[$key]  = true;
+                    $orderings[] = $ordered;
+                }
             }
         }
-        for ($i = 0; $i < $this->restarts; $i++) {
+        for ($i = 0; $i < $this->search->restarts; $i++) {
             $shuffled = $allPieces;
             shuffle($shuffled);   // uses mt_rand internally
             $key = $this->orderingKey($shuffled);
@@ -125,14 +124,12 @@ final class Solver
             [$result, $sheets] = $this->runPipeline($pieces);
             $tested++;
 
-            $unplacedCount = array_sum(array_column($result['unplaced_pieces'], 'qty'));
-            $bestUnplaced  = $bestResult
-                ? array_sum(array_column($bestResult['unplaced_pieces'], 'qty'))
-                : PHP_INT_MAX;
+            $unplacedCount = $result->unplacedCount();
+            $bestUnplaced  = $bestResult !== null ? $bestResult->unplacedCount() : PHP_INT_MAX;
 
             // Compare: fewer unplaced wins; tie → lower primary cost; primary
-            // tie → strategy tie-break.
-            $candPrimary  = $this->objective->primaryCost($result);
+            // tie → objective tie-break.
+            $candPrimary  = $this->scorer->primaryCost($result);
             $isBetter     = false;
             $candTiebreak = null;
 
@@ -141,14 +138,14 @@ final class Solver
             } elseif ($unplacedCount === $bestUnplaced) {
                 if ($candPrimary < $bestPrimary - 1e-9) {
                     $isBetter = true;
-                } elseif ($this->objective->hasTiebreak()
+                } elseif ($this->scorer->hasTiebreak()
                     && abs($candPrimary - $bestPrimary) <= 1e-9
                 ) {
                     // Lazy: tie-break scores are computed only for tied candidates
                     // (and once for the current best, then cached).
-                    $candTiebreak = $this->objective->tiebreakScore($result, $sheets);
+                    $candTiebreak = $this->scorer->tiebreakScore($result, $sheets);
                     if ($bestTiebreak === null) {
-                        $bestTiebreak = $this->objective->tiebreakScore($bestResult, $bestSheets);
+                        $bestTiebreak = $this->scorer->tiebreakScore($bestResult, $bestSheets);
                     }
                     if ($candTiebreak < $bestTiebreak - 1e-9) {
                         $isBetter = true;
@@ -166,8 +163,8 @@ final class Solver
             }
         }
 
-        $bestResult['permutations_tested'] = $tested;
-        $bestResult['time_budget_hit']     = $budgetHit;
+        $bestResult->passes        = $tested;
+        $bestResult->timeBudgetHit = $budgetHit;
         return [$bestResult, $bestSheets];
     }
 
@@ -175,7 +172,7 @@ final class Solver
      * One run of the pipeline on a given piece ordering.
      *
      * @param  array<int, array{float, float}> $pieces
-     * @return array{array, Sheet[]}
+     * @return array{NestingResult, Sheet[]}
      */
     private function runPipeline(array $pieces): array
     {

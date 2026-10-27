@@ -7,14 +7,18 @@ namespace Multiplast\SheetNester;
 use Multiplast\SheetNester\Internal\CutCalculator;
 use Multiplast\SheetNester\Internal\FormatReducer;
 use Multiplast\SheetNester\Internal\GuillotinePacker;
-use Multiplast\SheetNester\Internal\Objective;
 use Multiplast\SheetNester\Internal\Piece;
 use Multiplast\SheetNester\Internal\RemnantFinder;
 use Multiplast\SheetNester\Internal\ResultBuilder;
+use Multiplast\SheetNester\Internal\Scorer;
 use Multiplast\SheetNester\Internal\SheetEliminator;
 use Multiplast\SheetNester\Internal\Solver;
-use Multiplast\SheetNester\Internal\StockFormat;
+use Multiplast\SheetNester\Options\Material;
+use Multiplast\SheetNester\Options\Objective;
+use Multiplast\SheetNester\Options\Remnants;
+use Multiplast\SheetNester\Options\Search;
 use Multiplast\SheetNester\Render\SvgRenderer;
+use Multiplast\SheetNester\Result\NestingResult;
 
 /**
  * SheetNester – 2D bin packing for plastic sheet materials (polycarbonate etc.)
@@ -23,104 +27,143 @@ use Multiplast\SheetNester\Render\SvgRenderer;
  * and First Fit Decreasing (FFD) piece ordering. New-sheet formats are chosen
  * by a capped lookahead utilisation score; after each pass the engine tries
  * to eliminate the worst-utilised sheet (repack into the others) and to
- * shrink sheet formats (format reduction).
+ * shrink sheet formats (format reduction). Options\Search decides how many
+ * piece orderings are tried, Options\Objective how candidates compare.
  *
- * Strategies (same greedy engine; multi-pass ones differ in the tie-break):
- *  - 'smallest_fit' : Single FFD pass. restarts/seed/timeBudget unused.
- *  - 'min_waste'    : Multi-pass – canonical FFD, a deterministic portfolio
- *                     (max side / width / height / perimeter), then `restarts`
- *                     random shuffles (duplicates skipped). Best result wins:
- *                     fewest unplaced, then least material (m²).
- *  - 'min_cuts'     : Saw-time optimisation. Minimises a weighted score
- *                     material_m2 + cutCostM2 × cut_count, i.e. it MAY trade
- *                     a little material for noticeably fewer saw passes –
- *                     the cutCostM2 parameter sets the exchange rate.
- *                     Ties broken by total cut length (mm).
- *  - 'best_remnant' : Like min_waste; among material-tied results prefers the
- *                     one whose largest single usable rectangle is biggest
- *                     (one big offcut back to stock beats scattered waste).
+ *   $result = (new SheetNester())->solve($job);   // NestingJob → NestingResult
  *
- * Features:
- *  - Multiple stock formats with individual inventory limits
- *  - Grain direction enforcement (prevents rotation when required)
- *  - Kerf (blade width) compensation
- *  - SVG visualisation per sheet
- *  - Unplaced piece tracking
- *  - Calculation time reporting
+ * The 1.x constructor / addStockFormat() / addPiece() / calculate() / toSvg()
+ * API is still available on the same class and is deprecated: it builds a
+ * NestingJob from the old arguments and returns NestingResult::toLegacyArray().
  *
- * This class is the public facade: it validates and collects the input and
- * wires the engine together. The work is done by the classes in Internal\
- * (GuillotinePacker, SheetEliminator, FormatReducer, Solver, CutCalculator,
- * RemnantFinder, ResultBuilder) and the preview by Render\SvgRenderer.
+ * This class validates nothing itself – NestingJob and the option objects do –
+ * and keeps no state between solve() calls. The work is done by the classes in
+ * Internal\ (GuillotinePacker, SheetEliminator, FormatReducer, Solver, Scorer,
+ * CutCalculator, RemnantFinder, ResultBuilder).
  */
 class SheetNester
 {
+    /** @deprecated 1.x strategy names – use Options\Objective and Options\Search. */
     public const STRATEGY_SMALLEST_FIT    = 'smallest_fit';
+    /** @deprecated */
     public const STRATEGY_MIN_WASTE       = 'min_waste';
+    /** @deprecated */
     public const STRATEGY_MIN_CUTS        = 'min_cuts';
+    /** @deprecated */
     public const STRATEGY_BEST_REMNANT    = 'best_remnant';
 
-    /**
-     * Number of random piece-order restarts for STRATEGY_MIN_WASTE (in addition
-     * to the canonical FFD pass). Higher = better quality, longer runtime.
-     */
+    /** @deprecated Default restarts of the 1.x constructor; Options\Search has its own default. */
     public const MIN_WASTE_RESTARTS = 20;
 
+    /** @deprecated 1.x remnant modes – use Options\Remnants. */
     public const REMNANT_NONE    = 'none';
+    /** @deprecated */
     public const REMNANT_AUTO    = 'auto';
+    /** @deprecated */
     public const REMNANT_DEFINED = 'defined';
 
-    /** @var StockFormat[] */
-    private array $stockFormats = [];
-
-    /** @var Piece[] */
-    private array $pieces = [];
-
-    /** @var array<string, mixed> – result of the last calculate(), used by toSvg() */
-    private array $lastResult = [];
-
-    private float  $kerf;
-    private string $grainDirection;
-    private string $formatStrategy;
-    private int    $restarts;
-    private ?int   $seed;
-    private ?float $timeBudgetMs;
-    private string $remnantMode;
-    private float  $minRemnantSide;
-    private float  $cutCostM2;
-
-    /** @var array<int, array{float, float}> – remnant formats for REMNANT_DEFINED */
-    private array $remnantFormats = [];
+    // -------------------------------------------------------------------------
+    // 2.0 API
+    // -------------------------------------------------------------------------
 
     /**
-     * @param float      $kerf           Blade kerf width in mm (added to each piece footprint).
-     * @param string     $grainDirection Grain / channel direction: 'horizontal', 'vertical', or 'none'.
-     * @param string     $formatStrategy Strategy: 'smallest_fit' (single pass), 'min_waste',
-     *                                   'min_cuts' (material tie → shortest cut length), or
-     *                                   'best_remnant' (material tie → biggest single offcut).
-     * @param int        $restarts       Number of random piece-order restarts for the multi-pass
-     *                                   strategies (min_waste / min_cuts / best_remnant),
-     *                                   in addition to the canonical FFD pass.
-     *                                   0 = FFD only, higher = better quality / longer runtime.
-     *                                   Defaults to MIN_WASTE_RESTARTS constant (20).
-     * @param int|null   $seed           Random seed for reproducible results. null = random each run.
-     * @param float|null $timeBudgetMs   Soft time limit for calculate() in milliseconds.
-     *                                   The canonical FFD pass always runs; further restarts are
-     *                                   skipped once the budget is exhausted (best-so-far is kept).
-     *                                   null = no limit. Important on hosting without set_time_limit.
-     * @param string     $remnantMode    Usable-remnant marking: 'none' (default, no computation),
-     *                                   'auto' (mark largest empty rectangles), or 'defined'
-     *                                   (fit formats registered via addRemnantFormat()).
-     * @param float      $minRemnantSide Minimum shorter side (mm) of a rectangle to count as
-     *                                   a usable remnant in 'auto' mode.
-     * @param float      $cutCostM2      STRATEGY_MIN_CUTS only: material-equivalent value of one
-     *                                   saw pass, in m². The strategy minimises
-     *                                   material_m2 + cutCostM2 × cut_count, so e.g. 0.05 means
-     *                                   "one saved cut is worth 0.05 m² of material".
-     *                                   0 = never trade material, only break ties by cuts.
+     * Runs the nesting for the given job.
+     *
+     * Pipeline: expand + FFD-sort the pieces → Solver (one or many orderings of
+     * pack → eliminate sheets → reduce formats → build result) → order the
+     * sheets largest format first → attach usable remnants (winning sheets
+     * only, never inside the restart loop).
+     */
+    public function solve(NestingJob $job): NestingResult
+    {
+        $startTime = microtime(true);
+
+        $material  = $job->material();
+        $remnants  = $job->remnants();
+        $allPieces = $this->expandAndSort($job->pieces());
+
+        $packer  = new GuillotinePacker($material->kerf, $material->allowsRotation(), $job->stock());
+        $finder  = new RemnantFinder($material->kerf, $material->allowsRotation(), $remnants->minSide, $remnants->formats);
+        $builder = new ResultBuilder($job->stock(), $material->kerf, new CutCalculator());
+        $solver  = new Solver(
+            $packer,
+            new SheetEliminator($packer),
+            new FormatReducer($job->stock(), $material->kerf),
+            $builder,
+            new Scorer($job->objective(), $finder),
+            $job->search(),
+        );
+
+        [$result, $sheets] = $solver->solve($allPieces);
+
+        // Order the final sheets largest format first (grouping identical
+        // formats) so the operator can pull one format from stock at a time.
+        $builder->sortSheetsBySize($sheets, $result);
+
+        // Usable remnants – computed once, for the winning sheets only.
+        if ($remnants->enabled()) {
+            $builder->attachRemnants($result, $sheets, $finder, $remnants->mode);
+        }
+
+        $result->objective     = $job->objective()->name;
+        $result->calculationMs = round((microtime(true) - $startTime) * 1000, 2);
+
+        return $result;
+    }
+
+    /**
+     * Expands all pieces into individual [width, height] pairs and sorts them
+     * by area descending (FFD).
+     *
+     * @param  Piece[] $pieces
+     * @return array<int, array{float, float}>
+     */
+    private function expandAndSort(array $pieces): array
+    {
+        $all = [];
+        foreach ($pieces as $piece) {
+            for ($i = 0; $i < $piece->qty; $i++) {
+                $all[] = [$piece->width, $piece->height];
+            }
+        }
+        usort($all, fn($a, $b) => ($b[0] * $b[1]) <=> ($a[0] * $a[1]));
+        return $all;
+    }
+
+    // -------------------------------------------------------------------------
+    // 1.x API (deprecated adapter over solve())
+    // -------------------------------------------------------------------------
+
+    /** @var NestingJob|null  Job under construction by the 1.x methods. */
+    private ?NestingJob $legacyJob = null;
+
+    /** @var array<string, mixed>|null  1.x constructor arguments (job is built lazily). */
+    private ?array $legacyOptions = null;
+
+    /** @var array<int, array{float, float, int}> */
+    private array $legacyStock = [];
+
+    /** @var array<int, array{float, float, int}> */
+    private array $legacyPieces = [];
+
+    /** @var array<int, array{float, float}> */
+    private array $legacyRemnantFormats = [];
+
+    /** Result of the last calculate(), used by toSvg(). */
+    private ?NestingResult $lastResult = null;
+
+    /**
+     * @deprecated Build a NestingJob and call solve() instead. Mapping of the
+     *             1.x arguments: kerf/grainDirection → Options\Material
+     *             ('horizontal' = Grain::ALONG_WIDTH, 'vertical' = Grain::ALONG_HEIGHT),
+     *             formatStrategy → Options\Objective (+ Options\Search::singlePass()
+     *             for 'smallest_fit'), restarts/seed/timeBudgetMs → Options\Search,
+     *             remnantMode/minRemnantSide/addRemnantFormat() → Options\Remnants.
+     *
+     * @param float|null $kerf  null = plain 2.0 instance (solve() only).
      */
     public function __construct(
-        float  $kerf,
+        ?float $kerf           = null,
         string $grainDirection = 'none',
         string $formatStrategy = self::STRATEGY_SMALLEST_FIT,
         int    $restarts       = self::MIN_WASTE_RESTARTS,
@@ -130,6 +173,9 @@ class SheetNester
         float  $minRemnantSide = 200.0,
         float  $cutCostM2      = 0.05,
     ) {
+        if ($kerf === null) {
+            return;
+        }
         if (!in_array($grainDirection, ['horizontal', 'vertical', 'none'], true)) {
             throw new \InvalidArgumentException(
                 "grainDirection must be 'horizontal', 'vertical', or 'none'."
@@ -163,167 +209,127 @@ class SheetNester
         if ($cutCostM2 < 0) {
             throw new \InvalidArgumentException('cutCostM2 must be >= 0.');
         }
-        $this->kerf           = $kerf;
-        $this->grainDirection = $grainDirection;
-        $this->formatStrategy = $formatStrategy;
-        $this->restarts       = $restarts;
-        $this->seed           = $seed;
-        $this->timeBudgetMs   = $timeBudgetMs;
-        $this->remnantMode    = $remnantMode;
-        $this->minRemnantSide = $minRemnantSide;
-        $this->cutCostM2      = $cutCostM2;
+        $this->legacyOptions = [
+            'kerf'           => $kerf,
+            'grainDirection' => $grainDirection,
+            'formatStrategy' => $formatStrategy,
+            'restarts'       => $restarts,
+            'seed'           => $seed,
+            'timeBudgetMs'   => $timeBudgetMs,
+            'remnantMode'    => $remnantMode,
+            'minRemnantSide' => $minRemnantSide,
+            'cutCostM2'      => $cutCostM2,
+        ];
     }
 
-    /**
-     * Registers an available stock sheet format with a given inventory.
-     *
-     * @param float $width  Sheet width in mm.
-     * @param float $height Sheet height in mm.
-     * @param int   $stock  Maximum number of sheets available.
-     */
+    /** @deprecated Use NestingJob::addStock(). */
     public function addStockFormat(float $width, float $height, int $stock): void
     {
+        $this->requireLegacy();
         if ($width <= 0 || $height <= 0) {
             throw new \InvalidArgumentException('Stock format dimensions must be positive.');
         }
         if ($stock < 1) {
             throw new \InvalidArgumentException('Stock must be at least 1.');
         }
-        $this->stockFormats[] = new StockFormat($width, $height, $stock);
+        $this->legacyStock[] = [$width, $height, $stock];
     }
 
-    /**
-     * Adds a piece (or multiple identical pieces) to the nesting job.
-     *
-     * @param float $width  Piece width in mm.
-     * @param float $height Piece height in mm.
-     * @param int   $qty    Number of identical pieces required.
-     */
+    /** @deprecated Use NestingJob::addPiece(). */
     public function addPiece(float $width, float $height, int $qty): void
     {
+        $this->requireLegacy();
         if ($width <= 0 || $height <= 0) {
             throw new \InvalidArgumentException('Piece dimensions must be positive.');
         }
         if ($qty < 1) {
             throw new \InvalidArgumentException('Piece quantity must be at least 1.');
         }
-        $this->pieces[] = new Piece($width, $height, $qty);
+        $this->legacyPieces[] = [$width, $height, $qty];
     }
 
-    /**
-     * Registers a possible remnant format for REMNANT_DEFINED mode.
-     * The engine greedily fits these formats (largest area first, each
-     * repeatedly while it fits) into the free area of every sheet.
-     *
-     * @param float $width  Remnant width in mm.
-     * @param float $height Remnant height in mm.
-     */
+    /** @deprecated Use Options\Remnants::defined(). */
     public function addRemnantFormat(float $width, float $height): void
     {
+        $this->requireLegacy();
         if ($width <= 0 || $height <= 0) {
             throw new \InvalidArgumentException('Remnant format dimensions must be positive.');
         }
-        $this->remnantFormats[] = [$width, $height];
+        $this->legacyRemnantFormats[] = [$width, $height];
     }
 
     /**
-     * Runs the nesting algorithm and returns a structured result array.
-     *
-     * Pipeline: expand + FFD-sort the pieces → Solver (one or many orderings of
-     * pack → eliminate sheets → reduce formats → build result) → order the
-     * sheets largest format first → attach usable remnants (winning sheets
-     * only, never inside the restart loop).
-     *
-     * @return array{
-     *   sheets: array,
-     *   stock_usage: array,
-     *   unplaced_pieces: array,
-     *   total_sheets: int,
-     *   total_waste_pct: float,
-     *   utilization_pct: float,
-     *   total_material_m2: float,
-     *   total_cuts_count: int,
-     *   total_cuts_mm: float,
-     *   total_cuts_horiz_mm: float,
-     *   total_cuts_vert_mm: float,
-     *   total_seal_mm: float,
-     *   strategy: string,
-     *   permutations_tested: int,
-     *   time_budget_hit: bool,
-     *   calculation_time_ms: float
-     * }  plus total_remnant_m2 / total_remnant_pct (and sheets[].remnants,
-     *     sheets[].remnant_area_m2) when remnantMode is not 'none'.
+     * @deprecated Use solve(); this returns NestingResult::toLegacyArray().
+     * @return array<string, mixed>
      */
     public function calculate(): array
     {
-        $startTime     = microtime(true);
-        $allPieces     = $this->expandAndSort();
-        $allowRotation = $this->grainDirection === 'none';
+        $this->requireLegacy();
+        $o = $this->legacyOptions;
 
-        $packer   = new GuillotinePacker($this->kerf, $allowRotation, $this->stockFormats);
-        $remnants = new RemnantFinder($this->kerf, $allowRotation, $this->minRemnantSide, $this->remnantFormats);
-        $builder  = new ResultBuilder($this->stockFormats, $this->kerf, new CutCalculator());
-        $solver   = new Solver(
-            $packer,
-            new SheetEliminator($packer),
-            new FormatReducer($this->stockFormats, $this->kerf),
-            $builder,
-            new Objective($this->formatStrategy, $this->cutCostM2, $remnants),
-            $this->formatStrategy,
-            $this->restarts,
-            $this->seed,
-            $this->timeBudgetMs,
-        );
+        $grain = ['none' => Grain::NONE, 'horizontal' => Grain::ALONG_WIDTH, 'vertical' => Grain::ALONG_HEIGHT][$o['grainDirection']];
 
-        [$result, $sheets] = $solver->solve($allPieces);
+        switch ($o['formatStrategy']) {
+            case self::STRATEGY_MIN_CUTS:
+                $objective = Objective::minCuts($o['cutCostM2']);
+                break;
+            case self::STRATEGY_BEST_REMNANT:
+                $objective = Objective::bestRemnant();
+                break;
+            default:
+                $objective = Objective::minWaste();
+        }
+        $search = $o['formatStrategy'] === self::STRATEGY_SMALLEST_FIT
+            ? Search::singlePass()
+            : new Search($o['restarts'], $o['seed'], $o['timeBudgetMs']);
 
-        // Order the final sheets largest format first (grouping identical
-        // formats) so the operator can pull one format from stock at a time.
-        $result = $builder->sortSheetsBySize($sheets, $result);
-
-        // Usable remnants – computed once, for the winning sheets only.
-        if ($this->remnantMode !== self::REMNANT_NONE) {
-            $result = $builder->attachRemnants($result, $sheets, $remnants, $this->remnantMode);
+        switch ($o['remnantMode']) {
+            case self::REMNANT_AUTO:
+                $remnants = Remnants::auto($o['minRemnantSide']);
+                break;
+            case self::REMNANT_DEFINED:
+                $remnants = $this->legacyRemnantFormats !== []
+                    ? Remnants::defined($this->legacyRemnantFormats)
+                    : Remnants::none();
+                break;
+            default:
+                $remnants = Remnants::none();
         }
 
-        $result['strategy']            = $this->formatStrategy;
-        $result['calculation_time_ms'] = round((microtime(true) - $startTime) * 1000, 2);
+        $job = new NestingJob(new Material($o['kerf'], $grain), $objective, $search, $remnants);
+        foreach ($this->legacyStock as [$w, $h, $stock]) {
+            $job->addStock($w, $h, $stock);
+        }
+        foreach ($this->legacyPieces as [$w, $h, $qty]) {
+            $job->addPiece($w, $h, $qty);
+        }
 
-        $this->lastResult = $result;
-        return $result;
+        $result = $this->solve($job);
+        $result->objective = $o['formatStrategy'];   // 1.x reported the strategy name
+        $this->lastResult  = $result;
+
+        return $result->toLegacyArray();
     }
 
     /**
-     * Generates an SVG visualisation of the specified sheet of the last calculate().
-     *
-     * @param int $sheetIndex Zero-based index of the sheet to visualise.
-     * @return string SVG markup.
+     * @deprecated Use Render\SvgRenderer with NestingResult::$sheets.
      * @throws \OutOfRangeException If the sheet index does not exist.
      */
     public function toSvg(int $sheetIndex): string
     {
-        if (!isset($this->lastResult['sheets'][$sheetIndex])) {
+        if ($this->lastResult === null || !isset($this->lastResult->sheets[$sheetIndex])) {
             throw new \OutOfRangeException("Sheet index {$sheetIndex} does not exist.");
         }
 
-        return (new SvgRenderer())->render($this->lastResult['sheets'][$sheetIndex], $sheetIndex);
+        return (new SvgRenderer())->render($this->lastResult->sheets[$sheetIndex]);
     }
 
-    /**
-     * Expands all Piece objects into individual [width, height] pairs
-     * and sorts them by area descending (FFD).
-     *
-     * @return array<int, array{float, float}>
-     */
-    private function expandAndSort(): array
+    private function requireLegacy(): void
     {
-        $all = [];
-        foreach ($this->pieces as $piece) {
-            for ($i = 0; $i < $piece->qty; $i++) {
-                $all[] = [$piece->width, $piece->height];
-            }
+        if ($this->legacyOptions === null) {
+            throw new \LogicException(
+                'The 1.x methods need the 1.x constructor arguments; use NestingJob and solve() instead.'
+            );
         }
-        usort($all, fn($a, $b) => ($b[0] * $b[1]) <=> ($a[0] * $a[1]));
-        return $all;
     }
 }

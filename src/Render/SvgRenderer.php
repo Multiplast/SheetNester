@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Multiplast\SheetNester\Render;
 
+use Multiplast\SheetNester\Result\SheetPlan;
+
 /**
- * SVG preview of one sheet, drawn from the result array of
- * SheetNester::calculate() (one entry of $result['sheets']).
+ * SVG preview of one sheet plan.
  *
- * @internal Signature will change with the 2.0 result object; use SheetNester::toSvg().
+ * @internal Markup and signature may still change before 2.0; use SheetNester::toSvg().
  */
 final class SvgRenderer
 {
@@ -18,14 +19,11 @@ final class SvgRenderer
         '#E67E22','#16A085','#8E44AD','#D35400','#27AE60',
     ];
 
-    /**
-     * @param array<string, mixed> $sheet      One entry of $result['sheets'].
-     * @param int                  $sheetIndex Zero-based index (shown as #index+1).
-     */
-    public function render(array $sheet, int $sheetIndex): string
+    public function render(SheetPlan $sheet): string
     {
-        $sw     = $sheet['stock_width'];
-        $sh     = $sheet['stock_height'];
+        $sheetIndex = $sheet->index;
+        $sw         = $sheet->width;
+        $sh         = $sheet->height;
 
         $scale  = min(900 / $sw, 600 / $sh);
         $svgW   = (int) round($sw * $scale);
@@ -42,7 +40,6 @@ final class SvgRenderer
             $svgH + $padTop
         );
 
-        $usedPct = $sheet['used_area_pct'];
         $svg .= sprintf(
             '<text x="8" y="20" font-size="13" fill="#333" font-weight="bold">'
             . 'Deska #%d &nbsp; %g × %g mm &nbsp;|&nbsp; Využití: %s%%'
@@ -50,7 +47,7 @@ final class SvgRenderer
             $sheetIndex + 1,
             $sw,
             $sh,
-            $usedPct
+            $sheet->usedPct
         );
 
         $svg .= sprintf(
@@ -58,15 +55,15 @@ final class SvgRenderer
             $padTop, $svgW, $svgH
         );
 
-        foreach ($sheet['pieces'] as $i => $p) {
+        foreach ($sheet->pieces as $i => $p) {
             $color = self::COLORS[$i % count(self::COLORS)];
-            $x     = (int) round($p['x'] * $scale);
-            $y     = (int) round($p['y'] * $scale) + $padTop;
-            $rw    = (int) round($p['width'] * $scale);
-            $rh    = (int) round($p['height'] * $scale);
+            $x     = (int) round($p->x * $scale);
+            $y     = (int) round($p->y * $scale) + $padTop;
+            $rw    = (int) round($p->width * $scale);
+            $rh    = (int) round($p->height * $scale);
 
             $fill = $color;
-            if ($p['rotated']) {
+            if ($p->rotated) {
                 $patId = "hatch{$sheetIndex}_{$i}";
                 $svg .= sprintf(
                     '<defs><pattern id="%s" patternUnits="userSpaceOnUse" width="8" height="8">'
@@ -84,7 +81,7 @@ final class SvgRenderer
                 $x, $y, $rw, $rh, $fill
             );
 
-            $label    = sprintf('%g×%g', $p['width'], $p['height']) . ($p['rotated'] ? ' ↺' : '');
+            $label    = sprintf('%g×%g', $p->width, $p->height) . ($p->rotated ? ' ↺' : '');
             $fontSize = max(8, min(13, (int) ($rw / max(1, strlen($label)) * 1.6)));
             if ($rw > 20 && $rh > 14) {
                 $svg .= sprintf(
@@ -100,11 +97,11 @@ final class SvgRenderer
         }
 
         // Usable remnants – grey like waste, dashed green outline + dimensions
-        foreach (($sheet['remnants'] ?? []) as $r) {
-            $x  = (int) round($r['x'] * $scale);
-            $y  = (int) round($r['y'] * $scale) + $padTop;
-            $rw = (int) round($r['width'] * $scale);
-            $rh = (int) round($r['height'] * $scale);
+        foreach (($sheet->remnants ?? []) as $r) {
+            $x  = (int) round($r->x * $scale);
+            $y  = (int) round($r->y * $scale) + $padTop;
+            $rw = (int) round($r->width * $scale);
+            $rh = (int) round($r->height * $scale);
 
             $svg .= sprintf(
                 '<rect x="%d" y="%d" width="%d" height="%d" fill="rgba(46,125,50,0.08)" '
@@ -112,7 +109,7 @@ final class SvgRenderer
                 $x, $y, $rw, $rh
             );
 
-            $label    = sprintf('zbytek %g×%g', $r['width'], $r['height']);
+            $label    = sprintf('zbytek %g×%g', $r->width, $r->height);
             $fontSize = max(8, min(13, (int) ($rw / max(1, strlen($label)) * 1.6)));
             if ($rw > 30 && $rh > 14) {
                 $svg .= sprintf(
@@ -126,7 +123,7 @@ final class SvgRenderer
             }
         }
 
-        if (array_filter($sheet['pieces'], fn($p) => $p['rotated'])) {
+        if (array_filter($sheet->pieces, fn($p) => $p->rotated)) {
             $svg .= sprintf(
                 '<text x="%d" y="%d" font-size="10" fill="#666">↺ = otočeno o 90°</text>',
                 $svgW - 120,

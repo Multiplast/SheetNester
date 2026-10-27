@@ -12,8 +12,9 @@ namespace Multiplast\SheetNester\Internal;
 class Piece
 {
     public function __construct(
-        public float $width,
-        public float $height,
-        public int   $qty,
+        public float   $width,
+        public float   $height,
+        public int     $qty,
+        public ?string $label = null,
     ) {}
 }

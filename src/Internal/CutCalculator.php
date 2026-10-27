@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Multiplast\SheetNester\Internal;
 
+use Multiplast\SheetNester\Result\Cut;
+use Multiplast\SheetNester\Result\CutPlan;
+
 /**
  * Derives saw cuts (merged collinear segments) and the seal length from the
  * placed pieces of a sheet.
@@ -26,17 +29,8 @@ final class CutCalculator
      * For vertical-grain hollow polycarbonate the channels run along the height
      * axis — the open channel ends that need sealing strips are on the left and
      * right edges of each piece (length = height of piece, two sides per piece).
-     *
-     * @return array{
-     *   horizontal_mm: float,
-     *   vertical_mm: float,
-     *   total_mm: float,
-     *   seal_mm: float,
-     *   cuts_horizontal: array,
-     *   cuts_vertical: array
-     * }
      */
-    public function forSheet(Sheet $sheet): array
+    public function forSheet(Sheet $sheet): CutPlan
     {
         $sw = $sheet->format->width;
         $sh = $sheet->format->height;
@@ -74,29 +68,25 @@ final class CutCalculator
             }
         }
 
-        [$horizMm, $horizList] = $this->mergeSegments($horizSegs, 'horizontal');
-        [$vertMm,  $vertList]  = $this->mergeSegments($vertSegs,  'vertical');
+        [$horizMm, $horizList] = $this->mergeSegments($horizSegs, Cut::HORIZONTAL);
+        [$vertMm,  $vertList]  = $this->mergeSegments($vertSegs,  Cut::VERTICAL);
 
-        return [
-            'horizontal_mm'   => round($horizMm, 1),
-            'vertical_mm'     => round($vertMm,  1),
-            'total_mm'        => round($horizMm + $vertMm, 1),
-            'seal_mm'         => round($sealMm, 1),
-            'cuts_horizontal' => $horizList,
-            'cuts_vertical'   => $vertList,
-        ];
+        return new CutPlan(
+            round($horizMm, 1),
+            round($vertMm,  1),
+            round($horizMm + $vertMm, 1),
+            round($sealMm, 1),
+            $horizList,
+            $vertList
+        );
     }
 
     /**
-     * Merges overlapping/touching collinear segments, returns [totalLength, segmentList].
-     *
-     * Each entry in segmentList:
-     *   horizontal: ['y' => float, 'x_start' => float, 'x_end' => float, 'length' => float]
-     *   vertical:   ['x' => float, 'y_start' => float, 'y_end' => float, 'length' => float]
+     * Merges overlapping/touching collinear segments, returns [totalLength, Cut[]].
      *
      * @param  array<string, array<int, array{float, float}>> $segsByCoord
-     * @param  string                                          $axis  'horizontal'|'vertical'
-     * @return array{float, array}
+     * @param  string                                          $axis  Cut::HORIZONTAL | Cut::VERTICAL
+     * @return array{float, Cut[]}
      */
     private function mergeSegments(array $segsByCoord, string $axis): array
     {
@@ -124,30 +114,12 @@ final class CutCalculator
             foreach ($merged as [$start, $end]) {
                 $len    = round($end - $start, 1);
                 $total += $len;
-                if ($axis === 'horizontal') {
-                    $list[] = [
-                        'y'       => $coord,
-                        'x_start' => $start,
-                        'x_end'   => $end,
-                        'length'  => $len,
-                    ];
-                } else {
-                    $list[] = [
-                        'x'       => $coord,
-                        'y_start' => $start,
-                        'y_end'   => $end,
-                        'length'  => $len,
-                    ];
-                }
+                $list[] = new Cut($axis, $coord, $start, $end, $len);
             }
         }
 
-        // Sort output: horizontal by y then x_start; vertical by x then y_start
-        if ($axis === 'horizontal') {
-            usort($list, fn($a, $b) => $a['y'] <=> $b['y'] ?: $a['x_start'] <=> $b['x_start']);
-        } else {
-            usort($list, fn($a, $b) => $a['x'] <=> $b['x'] ?: $a['y_start'] <=> $b['y_start']);
-        }
+        // Sort output: by position (y / x), then by start (x_start / y_start)
+        usort($list, fn(Cut $a, Cut $b) => $a->position <=> $b->position ?: $a->start <=> $b->start);
 
         return [round($total, 1), $list];
     }

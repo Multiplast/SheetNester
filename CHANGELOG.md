@@ -11,6 +11,15 @@
   `Objective` (cílová funkce strategie), `CutCalculator`, `RemnantFinder`, `ResultBuilder`
   a `Render\SvgRenderer` (kreslí z pole výsledku); pomocné třídy přesunuty do `Internal\`.
   Veřejné API ani výstup se nemění – golden fixtures, SVG i PDF HTML jsou identické.
+- Nové API 2.0: `NestingJob::create(material, objective, search, remnants)` s `Options\Material`
+  (`Grain::NONE | ALONG_WIDTH | ALONG_HEIGHT`), `Options\Objective` (`minWaste()` / `minCuts()` /
+  `bestRemnant()`), `Options\Search` (`singlePass()` ≙ dřívější `smallest_fit`) a
+  `Options\Remnants` (`none()` / `auto()` / `defined()`); `SheetNester::solve(NestingJob)` vrací
+  typovaný `Result\NestingResult` (`SheetPlan`, `Placement`, `CutPlan`, `Cut`, `Remnant`,
+  `StockUsage`, `UnplacedPieces`). `NestingResult::toLegacyArray()` dává pole v tvaru 1.x.
+  Konstruktor 1.x, `addStockFormat()`, `addPiece()`, `addRemnantFormat()`, `calculate()`
+  a `toSvg()` zůstávají jako deprecated adaptér nad `solve()` (`'horizontal'` = `ALONG_WIDTH`,
+  `'vertical'` = `ALONG_HEIGHT`); výstup beze změny.
 
 ## 1.0.1 – 2026-10-27
 

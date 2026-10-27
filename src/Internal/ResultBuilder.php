@@ -4,18 +4,24 @@ declare(strict_types=1);
 
 namespace Multiplast\SheetNester\Internal;
 
-use Multiplast\SheetNester\SheetNester;
+use Multiplast\SheetNester\Options\Remnants;
+use Multiplast\SheetNester\Result\NestingResult;
+use Multiplast\SheetNester\Result\Placement;
+use Multiplast\SheetNester\Result\Remnant;
+use Multiplast\SheetNester\Result\SheetPlan;
+use Multiplast\SheetNester\Result\StockUsage;
+use Multiplast\SheetNester\Result\UnplacedPieces;
 
 /**
- * Assembles the public result array from nested sheets, orders the sheets for
- * the cutting plan and attaches usable remnants.
+ * Builds the NestingResult from nested sheets, orders the sheets for the
+ * cutting plan and attaches usable remnants.
  *
  * @internal
  */
 final class ResultBuilder
 {
     /**
-     * @param StockFormat[] $stockFormats Registered formats (for stock_usage).
+     * @param StockFormat[] $stockFormats Registered formats (for stock usage).
      */
     public function __construct(
         private array         $stockFormats,
@@ -25,34 +31,27 @@ final class ResultBuilder
     }
 
     /**
-     * Assembles the public result array from a completed nesting run.
+     * Assembles the result of a completed nesting run.
      *
      * @param Sheet[] $sheets
-     * @param array   $unplaced
+     * @param array   $unplaced  Packer output: list of {width, height, qty, reason}.
      */
-    public function build(array $sheets, array $unplaced): array
+    public function build(array $sheets, array $unplaced): NestingResult
     {
-        $sheetsOut = [];
+        $plans = [];
         foreach ($sheets as $sheet) {
-            $piecesOut = [];
+            $placements = [];
             foreach ($sheet->pieces as $p) {
-                $piecesOut[] = [
-                    'width'   => $p->width,
-                    'height'  => $p->height,
-                    'x'       => $p->x,
-                    'y'       => $p->y,
-                    'rotated' => $p->rotated,
-                ];
+                $placements[] = new Placement($p->x, $p->y, $p->width, $p->height, $p->rotated);
             }
-            $cuts = $this->cuts->forSheet($sheet);
-            $sheetsOut[] = [
-                'sheet_index'   => $sheet->index,
-                'stock_width'   => $sheet->format->width,
-                'stock_height'  => $sheet->format->height,
-                'pieces'        => $piecesOut,
-                'used_area_pct' => $sheet->usedAreaPct($this->kerf),
-                'cuts'          => $cuts,
-            ];
+            $plans[] = new SheetPlan(
+                $sheet->index,
+                $sheet->format->width,
+                $sheet->format->height,
+                $placements,
+                $sheet->usedAreaPct($this->kerf),
+                $this->cuts->forSheet($sheet)
+            );
         }
 
         // Stock usage – derived from winning sheets.
@@ -72,61 +71,67 @@ final class ResultBuilder
             $key = $sheet->format->width . 'x' . $sheet->format->height;
             if (!isset($usageMap[$key])) {
                 $usageMap[$key] = [
-                    'width'     => $sheet->format->width,
-                    'height'    => $sheet->format->height,
-                    'used'      => 0,
-                    'remaining' => 0,
+                    'width'  => $sheet->format->width,
+                    'height' => $sheet->format->height,
+                    'used'   => 0,
                 ];
             }
             $usageMap[$key]['used']++;
         }
+        $usage = [];
         foreach ($usageMap as $key => $u) {
-            $usageMap[$key]['remaining'] = max(0, ($stockByKey[$key] ?? 0) - $u['used']);
+            $usage[] = new StockUsage(
+                $u['width'],
+                $u['height'],
+                $u['used'],
+                max(0, ($stockByKey[$key] ?? 0) - $u['used'])
+            );
         }
 
-        $totalWaste      = 0.0;
-        $totalMaterialM2 = 0.0;
-        $totalPieceM2    = 0.0;
+        $unplacedOut = [];
+        foreach ($unplaced as $u) {
+            $unplacedOut[] = new UnplacedPieces($u['width'], $u['height'], $u['qty'], $u['reason']);
+        }
+
+        // Totals – from the per-sheet (rounded) values, exactly like 1.x.
+        $totalWaste       = 0.0;
+        $totalMaterialM2  = 0.0;
+        $totalPieceM2     = 0.0;
         $totalCutsHorizMm = 0.0;
         $totalCutsVertMm  = 0.0;
         $totalCutsSealMm  = 0.0;
         $totalCutsCount   = 0;
 
-        if (!empty($sheetsOut)) {
-            foreach ($sheetsOut as $s) {
-                $totalWaste       += 100 - $s['used_area_pct'];
-                $totalMaterialM2  += ($s['stock_width'] * $s['stock_height']) / 1_000_000;
-                $totalCutsHorizMm += $s['cuts']['horizontal_mm'];
-                $totalCutsVertMm  += $s['cuts']['vertical_mm'];
-                $totalCutsSealMm  += $s['cuts']['seal_mm'];
-                $totalCutsCount   += count($s['cuts']['cuts_horizontal'])
-                                   + count($s['cuts']['cuts_vertical']);
-                foreach ($s['pieces'] as $p) {
-                    $totalPieceM2 += ($p['width'] * $p['height']) / 1_000_000;
+        if (!empty($plans)) {
+            foreach ($plans as $s) {
+                $totalWaste       += 100 - $s->usedPct;
+                $totalMaterialM2  += ($s->width * $s->height) / 1_000_000;
+                $totalCutsHorizMm += $s->cuts->horizontalMm;
+                $totalCutsVertMm  += $s->cuts->verticalMm;
+                $totalCutsSealMm  += $s->cuts->sealMm;
+                $totalCutsCount   += $s->cuts->count();
+                foreach ($s->pieces as $p) {
+                    $totalPieceM2 += ($p->width * $p->height) / 1_000_000;
                 }
             }
-            $totalWaste = round($totalWaste / count($sheetsOut), 2);
+            $totalWaste = round($totalWaste / count($plans), 2);
         }
 
-        return [
-            'sheets'                => $sheetsOut,
-            'stock_usage'           => array_values($usageMap),
-            'unplaced_pieces'       => $unplaced,
-            'total_sheets'          => count($sheetsOut),
-            // Unweighted average of per-sheet waste percentages (kept for BC).
-            // Prefer 'utilization_pct' – area-weighted, consistent with the PDF summary.
-            'total_waste_pct'       => $totalWaste,
-            'utilization_pct'       => $totalMaterialM2 > 0
+        return new NestingResult(
+            sheets:           $plans,
+            stockUsage:       $usage,
+            unplaced:         $unplacedOut,
+            wastePctAvg:      $totalWaste,
+            utilizationPct:   $totalMaterialM2 > 0
                 ? round($totalPieceM2 / $totalMaterialM2 * 100, 2)
                 : 0.0,
-            'total_material_m2'     => round($totalMaterialM2, 4),
-            // Merged collinear segments ≈ number of saw passes (proxy).
-            'total_cuts_count'      => $totalCutsCount,
-            'total_cuts_mm'         => round($totalCutsHorizMm + $totalCutsVertMm, 1),
-            'total_cuts_horiz_mm'   => round($totalCutsHorizMm, 1),
-            'total_cuts_vert_mm'    => round($totalCutsVertMm, 1),
-            'total_seal_mm'          => round($totalCutsSealMm, 1),
-        ];
+            materialM2:       round($totalMaterialM2, 4),
+            cutCount:         $totalCutsCount,
+            cutsMm:           round($totalCutsHorizMm + $totalCutsVertMm, 1),
+            cutsHorizontalMm: round($totalCutsHorizMm, 1),
+            cutsVerticalMm:   round($totalCutsVertMm, 1),
+            sealMm:           round($totalCutsSealMm, 1),
+        );
     }
 
     /**
@@ -139,18 +144,18 @@ final class ResultBuilder
      * the operator can pull one format from stock at a time and work through
      * the plan largest → smallest. It does NOT move or re-cut any piece.
      *
-     * Reorders $sheets and $result['sheets'] with the SAME permutation so they
+     * Reorders $sheets and $result->sheets with the SAME permutation so they
      * stay aligned (attachRemnants relies on this). usort is stable (PHP 8),
      * so identical formats keep their relative order and the result stays
      * deterministic.
      *
      * @param Sheet[] $sheets  Reordered in place.
      */
-    public function sortSheetsBySize(array &$sheets, array $result): array
+    public function sortSheetsBySize(array &$sheets, NestingResult $result): void
     {
         $n = count($sheets);
-        if ($n < 2 || count($result['sheets']) !== $n) {
-            return $result;
+        if ($n < 2 || count($result->sheets) !== $n) {
+            return;
         }
 
         $order = range(0, $n - 1);
@@ -163,64 +168,54 @@ final class ResultBuilder
         });
 
         $newSheets = [];
-        $newOut    = [];
+        $newPlans  = [];
         foreach ($order as $pos => $old) {
             $sheets[$old]->index = $pos;
             $newSheets[] = $sheets[$old];
 
-            $row = $result['sheets'][$old];
-            $row['sheet_index'] = $pos;
-            $newOut[] = $row;
+            $plan        = $result->sheets[$old];
+            $plan->index = $pos;
+            $newPlans[]  = $plan;
         }
 
-        $sheets           = $newSheets;
-        $result['sheets'] = $newOut;
-        return $result;
+        $sheets         = $newSheets;
+        $result->sheets = $newPlans;
     }
 
     /**
-     * Computes usable remnants for the winning sheets and injects them into
-     * the result array: sheets[i]['remnants'] (list of {x, y, width, height}),
-     * sheets[i]['remnant_area_m2'], total_remnant_m2, total_remnant_pct.
+     * Computes usable remnants for the winning sheets and stores them in the
+     * result (SheetPlan::$remnants / $remnantM2, NestingResult::$remnantM2 /
+     * $remnantPct). One deterministic work budget is shared by all sheets.
      *
-     * One deterministic work budget is shared by all sheets of the result.
-     *
-     * @param Sheet[] $sheets  Aligned with $result['sheets'].
+     * @param Sheet[] $sheets  Aligned with $result->sheets.
      */
-    public function attachRemnants(array $result, array $sheets, RemnantFinder $finder, string $remnantMode): array
+    public function attachRemnants(NestingResult $result, array $sheets, RemnantFinder $finder, string $remnantMode): void
     {
         $totalRemnantM2 = 0.0;
         $workBudget     = RemnantFinder::WORK_BUDGET;
 
         foreach ($sheets as $i => $sheet) {
-            $remnants = $remnantMode === SheetNester::REMNANT_AUTO
+            $found = $remnantMode === Remnants::AUTO
                 ? $finder->findAuto($sheet, $workBudget)
                 : $finder->findDefined($sheet, $workBudget);
 
-            $remnantsOut = [];
-            $areaM2      = 0.0;
-            foreach ($remnants as $r) {
-                $remnantsOut[] = [
-                    'x'      => $r->x,
-                    'y'      => $r->y,
-                    'width'  => $r->width,
-                    'height' => $r->height,
-                ];
-                $areaM2 += $r->area() / 1_000_000;
+            $remnants = [];
+            $areaM2   = 0.0;
+            foreach ($found as $r) {
+                $remnants[] = new Remnant($r->x, $r->y, $r->width, $r->height);
+                $areaM2    += $r->area() / 1_000_000;
             }
 
-            if (isset($result['sheets'][$i])) {
-                $result['sheets'][$i]['remnants']        = $remnantsOut;
-                $result['sheets'][$i]['remnant_area_m2'] = round($areaM2, 4);
+            if (isset($result->sheets[$i])) {
+                $result->sheets[$i]->remnants  = $remnants;
+                $result->sheets[$i]->remnantM2 = round($areaM2, 4);
             }
             $totalRemnantM2 += $areaM2;
         }
 
-        $result['total_remnant_m2']  = round($totalRemnantM2, 4);
-        $result['total_remnant_pct'] = ($result['total_material_m2'] ?? 0) > 0
-            ? round($totalRemnantM2 / $result['total_material_m2'] * 100, 2)
+        $result->remnantM2  = round($totalRemnantM2, 4);
+        $result->remnantPct = $result->materialM2 > 0
+            ? round($totalRemnantM2 / $result->materialM2 * 100, 2)
             : 0.0;
-
-        return $result;
     }
 }
