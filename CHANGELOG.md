@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1 – 2026-10-27
+
+- Minimální verze PHP snížena z 8.1 na 8.0. Kód nepoužívá žádnou syntaxi, funkci ani třídu
+  novější než PHP 8.0 (ověřeno tokenovou kontrolou zdrojáků); stabilní `usort`, na kterém
+  stojí determinismus výsledků, garantuje PHP právě od verze 8.0. Běh na PHP 8.0.30 (Linux)
+  a 8.5.9 (Windows) dává pro všechny strategie, směry vláken a režimy zbytků identický
+  výsledek, SVG i PDF HTML.
+
 ## 1.0.0 – 2026-10-26
 
 - Vyčleněno z aplikace Bridge (`App\Model\Multiplast\Nesting`) do samostatného balíčku

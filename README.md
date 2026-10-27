@@ -8,7 +8,7 @@ a volitelně PDF nářezový plán (mPDF).
 - `Multiplast\SheetNester\SheetNester` – výpočet + `toSvg()`, bez závislostí
 - `Multiplast\SheetNester\SheetNesterPdf` – PDF plán, vyžaduje `mpdf/mpdf`
 
-Požadavky: PHP ≥ 8.1 (determinismus spoléhá na stabilní `usort` z PHP 8).
+Požadavky: PHP ≥ 8.0 (determinismus spoléhá na stabilní `usort`, které garantuje PHP od verze 8.0).
 
 ## Instalace
 
