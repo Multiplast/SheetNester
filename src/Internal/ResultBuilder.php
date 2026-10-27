@@ -50,7 +50,8 @@ final class ResultBuilder
                 $sheet->format->height,
                 $placements,
                 $sheet->usedAreaPct($this->kerf),
-                $this->cuts->forSheet($sheet)
+                $this->cuts->forSheet($sheet),
+                $this->cuts->sealMm($sheet)
             );
         }
 
@@ -99,7 +100,7 @@ final class ResultBuilder
         $totalPieceM2     = 0.0;
         $totalCutsHorizMm = 0.0;
         $totalCutsVertMm  = 0.0;
-        $totalCutsSealMm  = 0.0;
+        $totalSealMm      = 0.0;
         $totalCutsCount   = 0;
 
         if (!empty($plans)) {
@@ -108,7 +109,7 @@ final class ResultBuilder
                 $totalMaterialM2  += ($s->width * $s->height) / 1_000_000;
                 $totalCutsHorizMm += $s->cuts->horizontalMm;
                 $totalCutsVertMm  += $s->cuts->verticalMm;
-                $totalCutsSealMm  += $s->cuts->sealMm;
+                $totalSealMm      += $s->sealMm ?? 0.0;
                 $totalCutsCount   += $s->cuts->count();
                 foreach ($s->pieces as $p) {
                     $totalPieceM2 += ($p->width * $p->height) / 1_000_000;
@@ -130,7 +131,7 @@ final class ResultBuilder
             cutsMm:           round($totalCutsHorizMm + $totalCutsVertMm, 1),
             cutsHorizontalMm: round($totalCutsHorizMm, 1),
             cutsVerticalMm:   round($totalCutsVertMm, 1),
-            sealMm:           round($totalCutsSealMm, 1),
+            sealMm:           $this->cuts->hasSeal() ? round($totalSealMm, 1) : null,
         );
     }
 

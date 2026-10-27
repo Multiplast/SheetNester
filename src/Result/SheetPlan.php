@@ -20,6 +20,8 @@ final class SheetPlan
 
     /**
      * @param Placement[] $pieces
+     * @param float|null  $sealMm  Channel ends to seal on this sheet (mm); null for
+     *                             a material without channels (Grain::NONE).
      */
     public function __construct(
         public int     $index,
@@ -28,6 +30,7 @@ final class SheetPlan
         public array   $pieces,
         public float   $usedPct,
         public CutPlan $cuts,
+        public ?float  $sealMm,
     ) {
     }
 
@@ -40,7 +43,7 @@ final class SheetPlan
             'stock_height'  => $this->height,
             'pieces'        => array_map(fn(Placement $p) => $p->toLegacyArray(), $this->pieces),
             'used_area_pct' => $this->usedPct,
-            'cuts'          => $this->cuts->toLegacyArray(),
+            'cuts'          => $this->cuts->toLegacyArray($this->sealMm ?? 0.0),
         ];
         if ($this->remnants !== null) {
             $out['remnants']        = array_map(fn(Remnant $r) => $r->toLegacyArray(), $this->remnants);

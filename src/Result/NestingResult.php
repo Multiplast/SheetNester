@@ -41,21 +41,23 @@ final class NestingResult
      * @param float            $materialM2        Material used (all sheets), rounded to 4 dp.
      * @param int              $cutCount          Saw passes over all sheets.
      * @param float            $cutsMm            Total cut length (mm).
-     * @param float            $sealMm            Length to seal (mm) – 1.x definition:
-     *                                            Σ piece heights × 2.
+     * @param float|null       $sealMm            Channel ends to seal over all sheets (mm):
+     *                                            per piece the two edges perpendicular to
+     *                                            the channels (see Grain). Null for a
+     *                                            material without channels.
      */
     public function __construct(
-        public array $sheets,
-        public array $stockUsage,
-        public array $unplaced,
-        public float $wastePctAvg,
-        public float $utilizationPct,
-        public float $materialM2,
-        public int   $cutCount,
-        public float $cutsMm,
-        public float $cutsHorizontalMm,
-        public float $cutsVerticalMm,
-        public float $sealMm,
+        public array  $sheets,
+        public array  $stockUsage,
+        public array  $unplaced,
+        public float  $wastePctAvg,
+        public float  $utilizationPct,
+        public float  $materialM2,
+        public int    $cutCount,
+        public float  $cutsMm,
+        public float  $cutsHorizontalMm,
+        public float  $cutsVerticalMm,
+        public ?float $sealMm,
     ) {
     }
 
@@ -90,7 +92,7 @@ final class NestingResult
             'total_cuts_mm'       => $this->cutsMm,
             'total_cuts_horiz_mm' => $this->cutsHorizontalMm,
             'total_cuts_vert_mm'  => $this->cutsVerticalMm,
-            'total_seal_mm'       => $this->sealMm,
+            'total_seal_mm'       => $this->sealMm ?? 0.0,
             'permutations_tested' => $this->passes,
             'time_budget_hit'     => $this->timeBudgetHit,
         ];

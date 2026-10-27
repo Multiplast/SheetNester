@@ -19,7 +19,6 @@ final class CutPlan
         public float $horizontalMm,
         public float $verticalMm,
         public float $totalMm,
-        public float $sealMm,
         public array $horizontal,
         public array $vertical,
     ) {
@@ -31,14 +30,17 @@ final class CutPlan
         return count($this->horizontal) + count($this->vertical);
     }
 
-    /** @return array<string, mixed> */
-    public function toLegacyArray(): array
+    /**
+     * @param float $sealMm  The sheet's seal length – 1.x reported it inside 'cuts'.
+     * @return array<string, mixed>
+     */
+    public function toLegacyArray(float $sealMm): array
     {
         return [
             'horizontal_mm'   => $this->horizontalMm,
             'vertical_mm'     => $this->verticalMm,
             'total_mm'        => $this->totalMm,
-            'seal_mm'         => $this->sealMm,
+            'seal_mm'         => $sealMm,
             'cuts_horizontal' => array_map(fn(Cut $c) => $c->toLegacyArray(), $this->horizontal),
             'cuts_vertical'   => array_map(fn(Cut $c) => $c->toLegacyArray(), $this->vertical),
         ];

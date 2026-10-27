@@ -115,6 +115,34 @@ final class JobApiTest extends TestCase
         self::assertSame($legacy['utilization_pct'], $result->utilizationPct);
     }
 
+    public function testSealFollowsTheGrainAxis(): void
+    {
+        $solve = static function (string $grain): NestingResult {
+            $job = NestingJob::create(new Material(kerf: 0, grain: $grain), search: Search::singlePass())
+                ->addStock(2000, 1000, 1)
+                ->addPiece(1000, 500, 2);   // two pieces side by side
+            return (new SheetNester())->solve($job);
+        };
+
+        // channels along X → open ends are the left and right edges → 2 × height per piece
+        $alongWidth = $solve(Grain::ALONG_WIDTH);
+        self::assertSame(2000.0, $alongWidth->sealMm);
+        self::assertSame(2000.0, $alongWidth->sheets[0]->sealMm);
+        self::assertSame(2000.0, $alongWidth->toLegacyArray()['total_seal_mm']);
+
+        // channels along Y → open ends are the top and bottom edges → 2 × width per piece
+        $alongHeight = $solve(Grain::ALONG_HEIGHT);
+        self::assertSame(4000.0, $alongHeight->sealMm);
+        self::assertSame(4000.0, $alongHeight->sheets[0]->sealMm);
+        self::assertSame(4000.0, $alongHeight->toLegacyArray()['sheets'][0]['cuts']['seal_mm']);
+
+        // no channels → nothing to seal
+        $none = $solve(Grain::NONE);
+        self::assertNull($none->sealMm);
+        self::assertNull($none->sheets[0]->sealMm);
+        self::assertSame(0.0, $none->toLegacyArray()['total_seal_mm']);
+    }
+
     public function testOptionsValidateTheirArguments(): void
     {
         $invalid = [

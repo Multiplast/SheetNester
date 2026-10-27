@@ -74,7 +74,7 @@
                 "horizontal_mm": 9870.0,
                 "vertical_mm": 7740.0,
                 "total_mm": 17610.0,
-                "seal_mm": 17860.0,
+                "seal_mm": 19740.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -209,7 +209,7 @@
                 "horizontal_mm": 10600.0,
                 "vertical_mm": 5220.0,
                 "total_mm": 15820.0,
-                "seal_mm": 10440.0,
+                "seal_mm": 21200.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -312,7 +312,7 @@
                 "horizontal_mm": 5800.0,
                 "vertical_mm": 5620.0,
                 "total_mm": 11420.0,
-                "seal_mm": 11240.0,
+                "seal_mm": 11600.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -403,7 +403,7 @@
                 "horizontal_mm": 6270.0,
                 "vertical_mm": 5330.0,
                 "total_mm": 11600.0,
-                "seal_mm": 10660.0,
+                "seal_mm": 12540.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -532,7 +532,7 @@
                 "horizontal_mm": 8670.0,
                 "vertical_mm": 6030.0,
                 "total_mm": 14700.0,
-                "seal_mm": 10260.0,
+                "seal_mm": 17340.0,
                 "cuts_horizontal": [
                     {
                         "y": 900.0,
@@ -702,7 +702,7 @@
                 "horizontal_mm": 8270.0,
                 "vertical_mm": 6660.0,
                 "total_mm": 14930.0,
-                "seal_mm": 11700.0,
+                "seal_mm": 16540.0,
                 "cuts_horizontal": [
                     {
                         "y": 900.0,
@@ -803,7 +803,7 @@
                 "horizontal_mm": 3800.0,
                 "vertical_mm": 3620.0,
                 "total_mm": 7420.0,
-                "seal_mm": 7240.0,
+                "seal_mm": 7600.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -908,7 +908,7 @@
                 "horizontal_mm": 8000.0,
                 "vertical_mm": 3420.0,
                 "total_mm": 11420.0,
-                "seal_mm": 10080.0,
+                "seal_mm": 16000.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -999,7 +999,7 @@
                 "horizontal_mm": 6200.0,
                 "vertical_mm": 3420.0,
                 "total_mm": 9620.0,
-                "seal_mm": 6840.0,
+                "seal_mm": 12400.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -1096,7 +1096,7 @@
                 "horizontal_mm": 4000.0,
                 "vertical_mm": 3000.0,
                 "total_mm": 7000.0,
-                "seal_mm": 7140.0,
+                "seal_mm": 12000.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -1173,7 +1173,7 @@
                 "horizontal_mm": 3900.0,
                 "vertical_mm": 2810.0,
                 "total_mm": 6710.0,
-                "seal_mm": 7720.0,
+                "seal_mm": 7800.0,
                 "cuts_horizontal": [
                     {
                         "y": 1050.0,
@@ -1258,7 +1258,7 @@
                 "horizontal_mm": 5940.0,
                 "vertical_mm": 4140.0,
                 "total_mm": 10080.0,
-                "seal_mm": 8280.0,
+                "seal_mm": 10340.0,
                 "cuts_horizontal": [
                     {
                         "y": 900.0,
@@ -1362,7 +1362,7 @@
                 "horizontal_mm": 2970.0,
                 "vertical_mm": 4530.0,
                 "total_mm": 7500.0,
-                "seal_mm": 8580.0,
+                "seal_mm": 9940.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -1465,7 +1465,7 @@
                 "horizontal_mm": 4270.0,
                 "vertical_mm": 3690.0,
                 "total_mm": 7960.0,
-                "seal_mm": 7380.0,
+                "seal_mm": 8540.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -1554,7 +1554,7 @@
                 "horizontal_mm": 4400.0,
                 "vertical_mm": 1800.0,
                 "total_mm": 6200.0,
-                "seal_mm": 3600.0,
+                "seal_mm": 8800.0,
                 "cuts_horizontal": [
                     {
                         "y": 900.0,
@@ -1620,7 +1620,7 @@
                 "horizontal_mm": 4940.0,
                 "vertical_mm": 3600.0,
                 "total_mm": 8540.0,
-                "seal_mm": 6840.0,
+                "seal_mm": 9880.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -1690,7 +1690,7 @@
                 "horizontal_mm": 3100.0,
                 "vertical_mm": 1710.0,
                 "total_mm": 4810.0,
-                "seal_mm": 3420.0,
+                "seal_mm": 6200.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -1787,7 +1787,7 @@
                 "horizontal_mm": 900.0,
                 "vertical_mm": 1860.0,
                 "total_mm": 2760.0,
-                "seal_mm": 3720.0,
+                "seal_mm": 5800.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -1852,7 +1852,7 @@
                 "horizontal_mm": 3890.0,
                 "vertical_mm": 750.0,
                 "total_mm": 4640.0,
-                "seal_mm": 3600.0,
+                "seal_mm": 7780.0,
                 "cuts_horizontal": [
                     {
                         "y": 1050.0,
@@ -1904,7 +1904,7 @@
                 "horizontal_mm": 900.0,
                 "vertical_mm": 1860.0,
                 "total_mm": 2760.0,
-                "seal_mm": 3720.0,
+                "seal_mm": 5800.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -1963,7 +1963,7 @@
                 "horizontal_mm": 2470.0,
                 "vertical_mm": 1710.0,
                 "total_mm": 4180.0,
-                "seal_mm": 3420.0,
+                "seal_mm": 4940.0,
                 "cuts_horizontal": [
                     {
                         "y": 810.0,
@@ -2014,7 +2014,7 @@
                 "horizontal_mm": 0.0,
                 "vertical_mm": 0.0,
                 "total_mm": 0.0,
-                "seal_mm": 2100.0,
+                "seal_mm": 4000.0,
                 "cuts_horizontal": [],
                 "cuts_vertical": []
             },
@@ -2190,7 +2190,7 @@
     "total_cuts_mm": 195680.0,
     "total_cuts_horiz_mm": 115160.0,
     "total_cuts_vert_mm": 80520.0,
-    "total_seal_mm": 177840.0,
+    "total_seal_mm": 248780.0,
     "permutations_tested": 24,
     "time_budget_hit": false,
     "total_remnant_m2": 12.1684,

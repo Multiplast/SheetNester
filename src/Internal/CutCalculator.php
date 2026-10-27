@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Multiplast\SheetNester\Internal;
 
+use Multiplast\SheetNester\Grain;
 use Multiplast\SheetNester\Result\Cut;
 use Multiplast\SheetNester\Result\CutPlan;
 
@@ -16,7 +17,14 @@ use Multiplast\SheetNester\Result\CutPlan;
 final class CutCalculator
 {
     /**
-     * Calculates internal cut lengths and seal length for a single sheet.
+     * @param string $grain One of the Grain constants – decides the seal axis.
+     */
+    public function __construct(private string $grain)
+    {
+    }
+
+    /**
+     * Calculates internal cut lengths for a single sheet.
      *
      * Cut algorithm:
      *   1. Collect all piece edges as axis-aligned segments (horizontal / vertical).
@@ -24,11 +32,6 @@ final class CutCalculator
      *   3. Merge collinear overlapping/touching segments to avoid double-counting
      *      shared edges between adjacent pieces.
      *   4. Return merged segment list + totals.
-     *
-     * Seal length = sum of all piece HEIGHTS × 2.
-     * For vertical-grain hollow polycarbonate the channels run along the height
-     * axis — the open channel ends that need sealing strips are on the left and
-     * right edges of each piece (length = height of piece, two sides per piece).
      */
     public function forSheet(Sheet $sheet): CutPlan
     {
@@ -39,17 +42,12 @@ final class CutCalculator
         // Vertical segments   keyed by X coordinate → list of [y1, y2]
         $horizSegs = [];
         $vertSegs  = [];
-        $sealMm    = 0.0;
 
         foreach ($sheet->pieces as $p) {
             $x1 = $p->x;
             $y1 = $p->y;
             $x2 = $p->x + $p->width;
             $y2 = $p->y + $p->height;
-
-            // Seal: left + right vertical edge of each piece (height × 2).
-            // For vertical-grain panels the channels open on the left/right sides.
-            $sealMm += $p->height * 2;
 
             // Horizontal edges (top and bottom of piece)
             foreach ([$y1, $y2] as $y) {
@@ -75,10 +73,34 @@ final class CutCalculator
             round($horizMm, 1),
             round($vertMm,  1),
             round($horizMm + $vertMm, 1),
-            round($sealMm, 1),
             $horizList,
             $vertList
         );
+    }
+
+    /** Whether the material has channels to seal at all. */
+    public function hasSeal(): bool
+    {
+        return $this->grain !== Grain::NONE;
+    }
+
+    /**
+     * Length (mm) of open channel ends to seal on this sheet: for every piece
+     * the two edges perpendicular to the channels – Grain::ALONG_WIDTH → left
+     * and right edge (2 × height), Grain::ALONG_HEIGHT → top and bottom edge
+     * (2 × width). Null for a material without channels.
+     */
+    public function sealMm(Sheet $sheet): ?float
+    {
+        if (!$this->hasSeal()) {
+            return null;
+        }
+        $alongWidth = $this->grain === Grain::ALONG_WIDTH;
+        $mm = 0.0;
+        foreach ($sheet->pieces as $p) {
+            $mm += ($alongWidth ? $p->height : $p->width) * 2;
+        }
+        return round($mm, 1);
     }
 
     /**

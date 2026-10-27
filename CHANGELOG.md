@@ -20,6 +20,13 @@
   Konstruktor 1.x, `addStockFormat()`, `addPiece()`, `addRemnantFormat()`, `calculate()`
   a `toSvg()` zůstávají jako deprecated adaptér nad `solve()` (`'horizontal'` = `ALONG_WIDTH`,
   `'vertical'` = `ALONG_HEIGHT`); výstup beze změny.
+- **Změna hodnot:** délka pásky (`seal_mm`, `total_seal_mm`) se počítá podle osy komůrek –
+  na dílec dvě hrany kolmé ke komůrkám: `Grain::ALONG_WIDTH` → 2 × výška, `Grain::ALONG_HEIGHT`
+  → 2 × šířka, `Grain::NONE` → `null` (v legacy poli `0.0`). Verze 1.x počítala vždy Σ výška × 2
+  bez ohledu na směr, což odpovídá jen komůrkám podél šířky; pro `'vertical'` (= `ALONG_HEIGHT`,
+  konvence e-shopu: délka podél komůrek je `height`) se tedy hodnota mění na Σ šířka × 2.
+  Rozmístění, řezy ani SVG se nemění. Páska je nově na úrovni desky (`SheetPlan::$sealMm`),
+  v legacy poli zůstává v `cuts.seal_mm`.
 
 ## 1.0.1 – 2026-10-27
 

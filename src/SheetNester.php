@@ -84,7 +84,7 @@ class SheetNester
 
         $packer  = new GuillotinePacker($material->kerf, $material->allowsRotation(), $job->stock());
         $finder  = new RemnantFinder($material->kerf, $material->allowsRotation(), $remnants->minSide, $remnants->formats);
-        $builder = new ResultBuilder($job->stock(), $material->kerf, new CutCalculator());
+        $builder = new ResultBuilder($job->stock(), $material->kerf, new CutCalculator($material->grain));
         $solver  = new Solver(
             $packer,
             new SheetEliminator($packer),
