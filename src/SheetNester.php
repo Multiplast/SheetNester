@@ -72,12 +72,12 @@ final class SheetNester
 
         [$result, $sheets, $unplaced] = $solver->solve($allPieces);
 
-        // Remnants::$upsize – a larger stock format for a sheet when that turns
-        // its waste into a usable remnant. The pieces stay where they are, but
-        // format, utilisation, cuts and stock usage change, so the result is
-        // rebuilt from the sheets.
-        if ($remnants->upsize && $remnants->enabled()) {
-            $upsizer = new FormatUpsizer($job->stock(), $material->kerf, $finder, $remnants->mode);
+        // Remnants::$upsize – a larger stock format for the leftover sheet (or
+        // every sheet, UPSIZE_ALL) when that turns its waste into a usable
+        // remnant. The pieces stay where they are, but format, utilisation,
+        // cuts and stock usage change, so the result is rebuilt from the sheets.
+        if ($remnants->upsizes() && $remnants->enabled()) {
+            $upsizer = new FormatUpsizer($job->stock(), $material->kerf, $finder, $remnants->mode, $remnants->upsize);
             if ($upsizer->upsize($sheets) > 0) {
                 $rebuilt = $builder->build($sheets, $unplaced);
                 $rebuilt->passes        = $result->passes;

@@ -67,11 +67,19 @@ final class GoldenTest extends TestCase
                 1,
                 [[2000, 2000, 30], [7000, 100, 1]],
             ],
-            // minimum remnant size in both dimensions + larger formats for usable remnants
+            // minimum remnant size in both dimensions + a larger format for the leftover sheet
             'min_waste-r20-atleast-upsize' => [
                 [
                     'search'   => new Search(restarts: 20, seed: 42),
-                    'remnants' => Remnants::atLeast(1000, 1000, upsize: true),
+                    'remnants' => Remnants::atLeast(1000, 1000, upsize: Remnants::UPSIZE_LAST),
+                ],
+                GoldenDataset::STOCK, [],
+            ],
+            // … and for every sheet whose waste a larger format turns into a remnant
+            'min_waste-r20-atleast-upsize-all' => [
+                [
+                    'search'   => new Search(restarts: 20, seed: 42),
+                    'remnants' => Remnants::atLeast(1000, 1000, upsize: Remnants::UPSIZE_ALL),
                 ],
                 GoldenDataset::STOCK, [],
             ],

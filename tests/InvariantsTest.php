@@ -43,7 +43,7 @@ final class InvariantsTest extends TestCase
                 $result = (new SheetNester())->solve(self::job($spec, $objective, new Search(restarts: 5, seed: $seed)));
 
                 $this->assertAll($result, $spec, $objective->name, $label);
-                $this->assertNotWorseThanSinglePass($result, $baseline, $objective, $spec['remnants']->upsize, $label);
+                $this->assertNotWorseThanSinglePass($result, $baseline, $objective, $spec['remnants']->upsizes(), $label);
             }
         }
     }
@@ -82,9 +82,11 @@ final class InvariantsTest extends TestCase
                 Remnants::auto(200.0),
                 Remnants::atLeast(600.0, 300.0),
                 Remnants::defined($remnantFormats),
-                Remnants::atLeast(600.0, 300.0, upsize: true),
-                Remnants::defined($remnantFormats, upsize: true),
-            ][mt_rand(0, 5)],
+                Remnants::atLeast(600.0, 300.0, upsize: Remnants::UPSIZE_LAST),
+                Remnants::defined($remnantFormats, upsize: Remnants::UPSIZE_LAST),
+                Remnants::atLeast(600.0, 300.0, upsize: Remnants::UPSIZE_ALL),
+                Remnants::defined($remnantFormats, upsize: Remnants::UPSIZE_ALL),
+            ][mt_rand(0, 7)],
             'remnantFormats' => $remnantFormats,
         ];
     }
@@ -435,11 +437,11 @@ final class InvariantsTest extends TestCase
     }
 
     /**
-     * Remnants::$upsize: at most one sheet is enlarged; it records a smaller
-     * registered format that still holds all its pieces, and the enlargement
-     * has bought a usable remnant – it is never applied without one. Without
-     * upsize no sheet is enlarged. (Stock limits and geometry are covered by
-     * the other checks.)
+     * Remnants::$upsize: an enlarged sheet records a smaller registered format
+     * that still holds all its pieces, and the enlargement has bought a usable
+     * remnant – it is never applied without one. UPSIZE_LAST enlarges at most
+     * one sheet; without upsize no sheet is enlarged. (Stock limits and
+     * geometry are covered by the other checks.)
      *
      * @param array<string, mixed> $spec
      */
@@ -459,9 +461,11 @@ final class InvariantsTest extends TestCase
                 continue;
             }
             $enlarged++;
-            self::assertSame(1, $enlarged, "{$label}: more than one sheet enlarged");
             $where = "{$label}: sheet {$sheet->index} enlarged from {$from['width']}x{$from['height']}";
-            self::assertTrue($option->upsize, "{$where} although upsize is off");
+            self::assertTrue($option->upsizes(), "{$where} although upsize is off");
+            if ($option->upsize === Remnants::UPSIZE_LAST) {
+                self::assertSame(1, $enlarged, "{$label}: more than one sheet enlarged with UPSIZE_LAST");
+            }
             self::assertArrayHasKey("{$from['width']}x{$from['height']}", $formats, "{$where}: not a registered format");
             self::assertLessThan($sheet->width * $sheet->height, $from['width'] * $from['height'], "{$where}: not larger");
             foreach ($sheet->pieces as $p) {

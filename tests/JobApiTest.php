@@ -33,7 +33,8 @@ final class JobApiTest extends TestCase
         self::assertTrue($job->search()->portfolio);
         self::assertFalse($job->search()->isSinglePass());
         self::assertFalse($job->remnants()->enabled());
-        self::assertFalse($job->remnants()->upsize);
+        self::assertSame(Remnants::UPSIZE_NONE, $job->remnants()->upsize);
+        self::assertFalse($job->remnants()->upsizes());
         self::assertSame([], $job->stock());
         self::assertSame([], $job->pieces());
     }
@@ -51,6 +52,8 @@ final class JobApiTest extends TestCase
             'zero remnant height'=> fn() => Remnants::atLeast(100, 0),
             'no remnant formats' => fn() => Remnants::defined([]),
             'bad remnant format' => fn() => Remnants::defined([[1000, 0]]),
+            'bad upsize mode'    => fn() => Remnants::auto(200, upsize: 'sometimes'),
+            'bad upsize mode 2'  => fn() => Remnants::defined([[1000, 500]], upsize: 'true'),
             'stock width 0'      => fn() => NestingJob::create()->addStock(0, 1000),
             'stock quantity 0'   => fn() => NestingJob::create()->addStock(1000, 1000, 0),
             'piece width 0'      => fn() => NestingJob::create()->addPiece(0, 100),
@@ -77,14 +80,17 @@ final class JobApiTest extends TestCase
         $atLeast = Remnants::atLeast(500, 1000);
         self::assertSame([Remnants::AUTO, 500.0, 1000.0, 500.0], [$atLeast->mode, $atLeast->minWidth, $atLeast->minHeight, $atLeast->minSide]);
         self::assertTrue($atLeast->enabled());
-        self::assertFalse($atLeast->upsize);
+        self::assertSame(Remnants::UPSIZE_NONE, $atLeast->upsize);
+        self::assertFalse($atLeast->upsizes());
 
         self::assertSame([0.0, 0.0], [Remnants::none()->minWidth, Remnants::defined([[100, 100]])->minHeight]);
 
-        self::assertTrue(Remnants::atLeast(500, 1000, upsize: true)->upsize);
-        self::assertTrue(Remnants::auto(200, upsize: true)->upsize);
-        self::assertTrue(Remnants::defined([[100, 100]], upsize: true)->upsize);
-        self::assertFalse(Remnants::none()->upsize);
+        $last = Remnants::atLeast(500, 1000, upsize: Remnants::UPSIZE_LAST);
+        self::assertSame(Remnants::UPSIZE_LAST, $last->upsize);
+        self::assertTrue($last->upsizes());
+        self::assertSame(Remnants::UPSIZE_ALL, Remnants::auto(200, upsize: Remnants::UPSIZE_ALL)->upsize);
+        self::assertSame(Remnants::UPSIZE_LAST, Remnants::defined([[100, 100]], upsize: Remnants::UPSIZE_LAST)->upsize);
+        self::assertFalse(Remnants::none()->upsizes());
     }
 
     public function testSealFollowsTheGrainAxis(): void

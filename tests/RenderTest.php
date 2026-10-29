@@ -125,7 +125,7 @@ final class RenderTest extends TestCase
 
     public function testReportsAndArraysCarryTheEnlargedSheet(): void
     {
-        $job = NestingJob::create(new Material(0, Grain::ALONG_WIDTH), search: Search::singlePass(), remnants: Remnants::atLeast(2500, 1000, upsize: true))
+        $job = NestingJob::create(new Material(0, Grain::ALONG_WIDTH), search: Search::singlePass(), remnants: Remnants::atLeast(2500, 1000, upsize: Remnants::UPSIZE_LAST))
             ->addStock(6000, 2100, 5)
             ->addStock(4000, 2100, 5)
             ->addPiece(3000, 2100);
