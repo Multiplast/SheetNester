@@ -127,6 +127,16 @@ Both renderers take a label map as an extra argument (`SvgRenderer::LABELS_CS`,
 `PdfReport::LABELS_CS`, or your own with the same keys); the defaults are
 English. `PdfReport::html()` works without mPDF.
 
+`PdfReport` draws one diagram per sheet. With `groupIdenticalSheets: true`,
+sheets with the same format and layout share one diagram whose header gives
+the number of sheets and the totals over them. The diagrams are then numbered
+as plans, the pieces and remnants tables refer to those plan numbers, and
+`[N]` in a diagram is the row of the piece in the pieces table:
+
+```php
+$pdf = new PdfReport($result, $meta, PdfReport::LABELS_CS, groupIdenticalSheets: true);
+```
+
 ## Tests
 
 ```sh

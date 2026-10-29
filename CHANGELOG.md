@@ -7,6 +7,13 @@
   after Waste. New label key `stat_material` (`Material consumption` /
   `Spotřeba materiálu`); a custom label map without it falls back to the
   English text.
+- `Render\PdfReport`: new constructor argument `groupIdenticalSheets`
+  (default `false`, output unchanged). When on, sheets with the same format
+  and the same pieces and remnants at the same positions share one diagram;
+  its header gives the number of sheets (`24 pcs (302.4 m²)`) and the totals
+  over them. Diagrams are numbered as plans, the pieces and remnants tables
+  refer to plan numbers (column label key `col_plans`: `Plan` / `Plán`), and
+  `[N]` in a diagram is the row of the piece in the pieces table.
 
 ## 2.0.0 – 2026-10-27
 

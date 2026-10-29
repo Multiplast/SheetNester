@@ -120,6 +120,33 @@ final class RenderTest extends TestCase
         self::assertStringContainsString('Nejméně materiálu', $html);
     }
 
+    public function testPdfCanGroupIdenticalSheets(): void
+    {
+        $job = NestingJob::create(new Material(kerf: 0), search: Search::singlePass())
+            ->addStock(1000, 1000, 5)
+            ->addPiece(1000, 500, 5, 'P');
+        $result = (new SheetNester())->solve($job);
+        self::assertCount(3, $result->sheets);                                  // 2 + 2 + 1 pieces
+
+        $default = (new PdfReport($result))->html();
+        self::assertSame(3, substr_count($default, '<div class="sheet-block">'));
+        self::assertStringContainsString('[5]', $default);                      // running piece number
+        self::assertStringContainsString('<th>Sheet</th>', $default);
+
+        $grouped = (new PdfReport($result, [], [], groupIdenticalSheets: true))->html();
+        self::assertSame(2, substr_count($grouped, '<div class="sheet-block">'));
+        self::assertStringContainsString('<strong>2 pcs (2 m²)</strong>', $grouped);   // sheets 1 + 2 = plan 1
+        self::assertStringContainsString('Pieces: 4 pcs (2 m²)', $grouped);           // totals over both
+        self::assertStringContainsString('<td class="sh-num">2</td>', $grouped);       // sheet 3 = plan 2
+        self::assertStringContainsString('<th>Plan</th>', $grouped);
+        self::assertStringContainsString('<td>1, 2</td>', $grouped);                   // pieces table → plans
+        self::assertStringContainsString('[1]', $grouped);                             // [N] = pieces table row
+        self::assertStringNotContainsString('[2]', $grouped);
+
+        $czech = (new PdfReport($result, [], PdfReport::LABELS_CS, groupIdenticalSheets: true))->html();
+        self::assertStringContainsString('<th>Plán</th>', $czech);
+    }
+
     public function testArrayRoundTrips(): void
     {
         $result = self::sampleResult();
