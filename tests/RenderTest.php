@@ -78,6 +78,7 @@ final class RenderTest extends TestCase
         self::assertStringContainsString('Seal length', $html);
         self::assertStringContainsString(round($result->sealMm / 1000, 1) . ' m', $html);
         self::assertStringContainsString('Saw cuts', $html);
+        self::assertStringContainsString('Material consumption:</td><td class="stat-val">' . $result->materialM2 . ' m²', $html);
         self::assertStringContainsString('Least material', $html);          // objective by name …
         self::assertStringNotContainsString('min_waste', $html);            // … not by identifier
         self::assertStringContainsString('Unplaced pieces', $html);
@@ -89,6 +90,7 @@ final class RenderTest extends TestCase
         $czech = (new PdfReport($result, [], PdfReport::LABELS_CS))->html();
         self::assertStringContainsString('Nářezový plán', $czech);
         self::assertStringContainsString('Zaslepení (páska)', $czech);
+        self::assertStringContainsString('Spotřeba materiálu', $czech);
         self::assertStringContainsString('Kus je větší než všechny dostupné formáty desek.', $czech);
         self::assertStringContainsString('Nejméně materiálu', $czech);
     }

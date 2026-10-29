@@ -34,6 +34,7 @@ final class PdfReport
         'material'         => 'Material',
         'stat_pieces'      => 'Placed pieces',
         'stat_waste'       => 'Waste',
+        'stat_material'    => 'Material consumption',
         'stat_utilization' => 'Material utilization',
         'stat_sheets'      => 'Sheets',
         'stat_objective'   => 'Objective',
@@ -77,6 +78,7 @@ final class PdfReport
         'material'         => 'Materiál',
         'stat_pieces'      => 'Uložené dílce',
         'stat_waste'       => 'Odpad',
+        'stat_material'    => 'Spotřeba materiálu',
         'stat_utilization' => 'Využití materiálu',
         'stat_sheets'      => 'Celkem desek',
         'stat_objective'   => 'Cíl optimalizace',
@@ -397,6 +399,7 @@ final class PdfReport
         $stats = [
             $this->t('stat_pieces')      => round($totalPieceArea, 4) . ' m²',
             $this->t('stat_waste')       => round($wasteArea, 4)      . ' m²',
+            $this->t('stat_material')    => round($totalSheetArea, 4) . ' m²',
             $this->t('stat_utilization') => $utilRelPct               . ' %',
             $this->t('stat_sheets')      => count($r->sheets)         . ' ' . $pcs,
             $this->t('stat_cuts')        => $r->cutCount . ' / ' . round($r->cutsMm / 1000, 1) . ' m',

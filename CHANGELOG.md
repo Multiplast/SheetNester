@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `Render\PdfReport`: the summary statistics show the total material
+  consumption (area of all sheets used, `NestingResult::$materialM2`) right
+  after Waste. New label key `stat_material` (`Material consumption` /
+  `Spotřeba materiálu`); a custom label map without it falls back to the
+  English text.
+
 ## 2.0.0 – 2026-10-27
 
 ### New API
