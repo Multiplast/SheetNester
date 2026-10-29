@@ -78,6 +78,7 @@ final class RenderTest extends TestCase
         self::assertStringContainsString('Seal length', $html);
         self::assertStringContainsString(round($result->sealMm / 1000, 1) . ' m', $html);
         self::assertStringContainsString('Saw cuts', $html);
+        self::assertStringContainsString('Material consumption:</td><td class="stat-val">' . $result->materialM2 . ' m²', $html);
         self::assertStringContainsString('Least material', $html);          // objective by name …
         self::assertStringNotContainsString('min_waste', $html);            // … not by identifier
         self::assertStringContainsString('Unplaced pieces', $html);
@@ -91,6 +92,7 @@ final class RenderTest extends TestCase
         $czech = (new PdfReport($result, [], PdfReport::LABELS_CS))->html();
         self::assertStringContainsString('Nářezový plán', $czech);
         self::assertStringContainsString('Zaslepení (páska)', $czech);
+        self::assertStringContainsString('Spotřeba materiálu', $czech);
         self::assertStringContainsString('Čistá spotřeba (bez zbytků)', $czech);
         self::assertStringContainsString('Kus je větší než všechny dostupné formáty desek.', $czech);
         self::assertStringContainsString('Nejméně materiálu', $czech);
@@ -154,6 +156,52 @@ final class RenderTest extends TestCase
         self::assertArrayNotHasKey('upsized_from', $legacy['sheets'][0]);
         self::assertArrayNotHasKey('net_material_m2', $legacy);
         self::assertNull(NestingResult::fromLegacyArray($legacy)->sheets[0]->upsizedFrom);
+    }
+
+    public function testPdfCanGroupIdenticalSheets(): void
+    {
+        $job = NestingJob::create(new Material(kerf: 0), search: Search::singlePass())
+            ->addStock(1000, 1000, 5)
+            ->addPiece(1000, 500, 5, 'P');
+        $result = (new SheetNester())->solve($job);
+        self::assertCount(3, $result->sheets);                                  // 2 + 2 + 1 pieces
+
+        $default = (new PdfReport($result))->html();
+        self::assertSame(3, substr_count($default, '<div class="sheet-block">'));
+        self::assertStringContainsString('[5]', $default);                      // running piece number
+        self::assertStringContainsString('<th>Sheet</th>', $default);
+
+        $grouped = (new PdfReport($result, [], [], groupIdenticalSheets: true))->html();
+        self::assertSame(2, substr_count($grouped, '<div class="sheet-block">'));
+        self::assertStringContainsString('<strong>2 pcs (2 m²)</strong>', $grouped);   // sheets 1 + 2 = plan 1
+        self::assertStringContainsString('Pieces: 4 pcs (2 m²)', $grouped);           // totals over both
+        self::assertStringContainsString('<td class="sh-num">2</td>', $grouped);       // sheet 3 = plan 2
+        self::assertStringContainsString('<th>Plan</th>', $grouped);
+        self::assertStringContainsString('<td>1, 2</td>', $grouped);                   // pieces table → plans
+        self::assertStringContainsString('[1]', $grouped);                             // [N] = pieces table row
+        self::assertStringNotContainsString('[2]', $grouped);
+
+        $czech = (new PdfReport($result, [], PdfReport::LABELS_CS, groupIdenticalSheets: true))->html();
+        self::assertStringContainsString('<th>Plán</th>', $czech);
+
+        $pages = (new PdfReport($result, [], [], groupIdenticalSheets: true, oneSheetPerPage: true))->html();
+        self::assertSame(2, substr_count($pages, '<pagebreak orientation="landscape" />'));   // one page per plan
+    }
+
+    public function testPdfCanPutEachDiagramOnALandscapePage(): void
+    {
+        $result = self::sampleResult();
+        $sheets = count($result->sheets);
+
+        $default = (new PdfReport($result))->html();
+        self::assertStringNotContainsString('<pagebreak', $default);
+        self::assertStringContainsString('width="175mm"', $default);            // 6000 × 2100, portrait width
+
+        $html = (new PdfReport($result, [], [], oneSheetPerPage: true))->html();
+        self::assertSame($sheets, substr_count($html, '<pagebreak orientation="landscape" />'));
+        self::assertSame($sheets, substr_count($html, '<div class="sheet-block">'));
+        self::assertStringNotContainsString('class="sheet-sep"', $html);
+        self::assertStringContainsString('width="267mm"', $html);               // landscape width
     }
 
     public function testArrayRoundTrips(): void

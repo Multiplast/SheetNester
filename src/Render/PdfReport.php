@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Multiplast\SheetNester\Render;
 
 use Multiplast\SheetNester\Result\NestingResult;
+use Multiplast\SheetNester\Result\Placement;
+use Multiplast\SheetNester\Result\Remnant;
 use Multiplast\SheetNester\Result\SheetPlan;
 
 /**
@@ -13,6 +15,18 @@ use Multiplast\SheetNester\Result\SheetPlan;
  *              unplaced pieces,
  *   - page 2+: sheet diagrams, two per page – grey waste background, white
  *              piece rectangles with dimension labels and a [N] index.
+ *
+ * With groupIdenticalSheets: true, sheets with the same format and the same
+ * layout (pieces and remnants at the same positions) share one diagram whose
+ * header gives the number of sheets and the totals over them. The diagrams
+ * are then numbered 1, 2, … as plans, the pieces and remnants tables refer to
+ * those plan numbers, and [N] in a diagram is the row of the piece in the
+ * pieces table (a running piece number would no longer identify one piece).
+ *
+ * With oneSheetPerPage: true, every diagram gets its own A4 landscape page
+ * (the summary stays portrait): about 1.5× larger drawings with
+ * proportionally larger labels, at the cost of more pages. Combines well with
+ * groupIdenticalSheets.
  *
  * mPDF is an optional dependency (composer require mpdf/mpdf); html() works
  * without it and is handy for previews and tests. Framework-agnostic.
@@ -24,7 +38,7 @@ use Multiplast\SheetNester\Result\SheetPlan;
  *       'title'        => 'Cutting plan no. 12345',
  *       'material'     => 'PC 10 mm clear',
  *       'company_name' => 'ACME Ltd.',
- *   ], PdfReport::LABELS_CS);
+ *   ], PdfReport::LABELS_CS, groupIdenticalSheets: true, oneSheetPerPage: true);
  *   $pdf->download('cutting-plan.pdf');
  */
 final class PdfReport
@@ -34,6 +48,7 @@ final class PdfReport
         'material'         => 'Material',
         'stat_pieces'      => 'Placed pieces',
         'stat_waste'       => 'Waste',
+        'stat_material'    => 'Material consumption',
         'stat_net_material' => 'Net material (less remnants)',
         'stat_utilization' => 'Material utilization',
         'stat_sheets'      => 'Sheets',
@@ -57,6 +72,7 @@ final class PdfReport
         'col_qty'          => 'Qty',
         'col_rotated'      => 'Rotated',
         'col_sheets'       => 'Sheet',
+        'col_plans'        => 'Plan',
         'yes'              => 'yes',
         'remnants_heading' => 'Usable remnants (total %s m²)',
         'remnants_note'    => 'Advisory – a marked remnant is not guaranteed to be separable with one sequence of guillotine cuts.',
@@ -79,6 +95,7 @@ final class PdfReport
         'material'         => 'Materiál',
         'stat_pieces'      => 'Uložené dílce',
         'stat_waste'       => 'Odpad',
+        'stat_material'    => 'Spotřeba materiálu',
         'stat_net_material' => 'Čistá spotřeba (bez zbytků)',
         'stat_utilization' => 'Využití materiálu',
         'stat_sheets'      => 'Celkem desek',
@@ -102,6 +119,7 @@ final class PdfReport
         'col_qty'          => 'Množství',
         'col_rotated'      => 'Otočeno',
         'col_sheets'       => 'Deska',
+        'col_plans'        => 'Plán',
         'yes'              => 'ano',
         'remnants_heading' => 'Použitelné zbytky (celkem %s m²)',
         'remnants_note'    => 'Orientační – vyznačené zbytky negarantují vyřezatelnost jedním sledem guillotine řezů.',
@@ -129,6 +147,12 @@ final class PdfReport
     /** Maximum diagram height per sheet block (2 blocks per page, headers included). */
     private const DIAGRAM_MAX_H = 90.0;
 
+    /** oneSheetPerPage: diagram width on A4 landscape (297 mm, 15 mm side margins). */
+    private const DIAGRAM_LANDSCAPE_W = 267.0;
+
+    /** oneSheetPerPage: height left for the diagram under the sheet header (210 mm page). */
+    private const DIAGRAM_LANDSCAPE_H = 150.0;
+
     private const COL_WASTE        = '#c8c8c8';  // grey fill for unused sheet area
     private const COL_PIECE_FILL   = '#ffffff';  // piece rectangle fill
     private const COL_PIECE_STROKE = '#444444';  // piece border
@@ -144,16 +168,42 @@ final class PdfReport
     /** @var array<string, string> */
     private array $labels;
 
+    private bool $groupIdenticalSheets;
+
+    private bool $oneSheetPerPage;
+
+    /** Diagram box (mm) for the chosen layout. */
+    private float $diagramMaxW;
+
+    private float $diagramMaxH;
+
+    /** Label size relative to the two-per-page layout. */
+    private float $fontFactor;
+
     /**
      * @param array<string, string> $meta    Report metadata (all keys optional):
      *                                       title, subtitle, material, company_name,
      *                                       company_addr, company_phone, company_email,
      *                                       company_www, company_id, company_vat_id.
      * @param array<string, string> $labels  Text overrides, see LABELS_EN for the keys.
+     * @param bool                  $groupIdenticalSheets  One diagram per distinct sheet layout
+     *                                       instead of one per sheet (see the class doc).
+     * @param bool                  $oneSheetPerPage  Each diagram on its own A4 landscape page
+     *                                       instead of two per portrait page.
      */
-    public function __construct(NestingResult $result, array $meta = [], array $labels = [])
-    {
+    public function __construct(
+        NestingResult $result,
+        array $meta = [],
+        array $labels = [],
+        bool $groupIdenticalSheets = false,
+        bool $oneSheetPerPage = false
+    ) {
         $this->result = $result;
+        $this->groupIdenticalSheets = $groupIdenticalSheets;
+        $this->oneSheetPerPage = $oneSheetPerPage;
+        $this->diagramMaxW = $oneSheetPerPage ? self::DIAGRAM_LANDSCAPE_W : self::DIAGRAM_MAX_W;
+        $this->diagramMaxH = $oneSheetPerPage ? self::DIAGRAM_LANDSCAPE_H : self::DIAGRAM_MAX_H;
+        $this->fontFactor  = $this->diagramMaxW / self::DIAGRAM_MAX_W;
         $this->labels = $labels + self::LABELS_EN;
         $this->meta   = array_merge([
             'title'          => $this->labels['title'],
@@ -176,18 +226,46 @@ final class PdfReport
     /** The complete HTML the PDF is rendered from (no mPDF needed). */
     public function html(): string
     {
+        $plans = $this->sheetGroups();
+
+        // Number shown for each sheet (keyed like NestingResult::$sheets): the
+        // sheet number, or with grouping the number of the plan drawn for it.
+        $sheetNo = [];
+        foreach ($plans as $plan) {
+            foreach ($plan['keys'] as $key) {
+                $sheetNo[$key] = $plan['number'];
+            }
+        }
+        $pieceGroups = $this->pieceGroups($sheetNo);
+        $pieceRow    = array_flip(array_keys($pieceGroups));
+
         $html  = $this->buildStyles();
-        $html .= $this->buildSummaryPage();
+        $html .= $this->buildSummaryPage($pieceGroups, $sheetNo);
 
         // Sheet diagrams flow directly after the summary – no forced page break.
         // Each block is unbreakable (page-break-inside: avoid on .sheet-block),
         // so mPDF moves whole blocks to the next page when they don't fit.
-        // $offset = global piece index so the diagram [N] numbers run through
-        // the whole plan.
+        // With oneSheetPerPage every block starts its own landscape page
+        // (an mPDF <pagebreak>; browsers ignore the tag in html() previews).
+        // $offset = running index of the drawn pieces: the diagram [N] number
+        // (runs through the whole plan) and the unique clip-path ids. With
+        // grouping [N] is the piece's row in the pieces table instead.
         $offset = 1;
-        foreach ($this->result->sheets as $sheet) {
-            $html .= $this->buildSheetBlock($sheet, $offset);
-            $html .= '<div class="sheet-sep"></div>';
+        foreach ($plans as $plan) {
+            $sheet   = $plan['sheet'];
+            $numbers = [];
+            foreach ($sheet->pieces as $i => $p) {
+                $numbers[$i] = $this->groupIdenticalSheets
+                    ? $pieceRow[$this->pieceKey($p)] + 1
+                    : $offset + $i;
+            }
+            if ($this->oneSheetPerPage) {
+                $html .= '<pagebreak orientation="landscape" />';
+            }
+            $html .= $this->buildSheetBlock($sheet, $plan['number'], count($plan['keys']), $offset, $numbers);
+            if (!$this->oneSheetPerPage) {
+                $html .= '<div class="sheet-sep"></div>';
+            }
             $offset += count($sheet->pieces);
         }
 
@@ -336,7 +414,11 @@ final class PdfReport
     // Summary page
     // -------------------------------------------------------------------------
 
-    private function buildSummaryPage(): string
+    /**
+     * @param array<string, array{width: float, height: float, label: ?string, labelled: bool, qty: int, area: float, sheets: int[], rotated: bool}> $groups
+     * @param array<int|string, int> $sheetNo  See html().
+     */
+    private function buildSummaryPage(array $groups, array $sheetNo): string
     {
         $m = $this->meta;
         $r = $this->result;
@@ -401,6 +483,7 @@ final class PdfReport
         $stats = [
             $this->t('stat_pieces')      => round($totalPieceArea, 4) . ' m²',
             $this->t('stat_waste')       => round($wasteArea, 4)      . ' m²',
+            $this->t('stat_material')    => round($totalSheetArea, 4) . ' m²',
         ];
         if ($r->netMaterialM2 !== null) {
             $stats[$this->t('stat_net_material')] = $r->netMaterialM2 . ' m²';
@@ -451,34 +534,11 @@ final class PdfReport
         $html .= '</table>';
 
         // ---- Piece list – grouped by size and label ----
-        /** @var array<string, array{width: float, height: float, label: ?string, qty: int, area: float, sheets: int[], rotated: bool}> $groups */
-        $groups    = [];
         $hasLabels = false;
-        foreach ($r->sheets as $sheet) {
-            foreach ($sheet->pieces as $p) {
-                // Rotated and non-rotated variants of the same cut are NOT merged
-                // (they differ visually on grain-direction material).
-                $key = $p->width . ':' . $p->height . ':' . ($p->label ?? '');
-                if (!isset($groups[$key])) {
-                    $groups[$key] = [
-                        'width'   => $p->width,
-                        'height'  => $p->height,
-                        'label'   => $p->label,
-                        'qty'     => 0,
-                        'area'    => 0.0,
-                        'sheets'  => [],
-                        'rotated' => $p->rotated,
-                    ];
-                }
-                $groups[$key]['qty']++;
-                $groups[$key]['area'] += ($p->width * $p->height) / 1_000_000;
-                $sheetNum = $sheet->index + 1;
-                if (!in_array($sheetNum, $groups[$key]['sheets'], true)) {
-                    $groups[$key]['sheets'][] = $sheetNum;
-                }
-                $hasLabels = $hasLabels || $p->label !== null;
-            }
+        foreach ($groups as $group) {
+            $hasLabels = $hasLabels || $group['labelled'];
         }
+        $sheetCol = $this->e($this->t($this->groupIdenticalSheets ? 'col_plans' : 'col_sheets'));
 
         $html .= '<div class="section-head">' . $this->e($this->t('pieces_heading')) . '</div>';
         $html .= '<table class="plan-tbl"><tr><th>#</th>'
@@ -488,7 +548,7 @@ final class PdfReport
                . '<th>' . $this->e($this->t('col_area')) . '</th>'
                . '<th>' . $this->e($this->t('col_qty')) . '</th>'
                . '<th>' . $this->e($this->t('col_rotated')) . '</th>'
-               . '<th>' . $this->e($this->t('col_sheets')) . '</th>'
+               . '<th>' . $sheetCol . '</th>'
                . '</tr>';
         $rowIdx = 1;
         foreach ($groups as $group) {
@@ -510,7 +570,7 @@ final class PdfReport
 
         // ---- Usable remnants (advisory) – grouped by size across sheets ----
         $remnantGroups = [];
-        foreach ($r->sheets as $sheet) {
+        foreach ($r->sheets as $sheetKey => $sheet) {
             foreach (($sheet->remnants ?? []) as $rem) {
                 $key = $rem->width . ':' . $rem->height;
                 if (!isset($remnantGroups[$key])) {
@@ -524,7 +584,7 @@ final class PdfReport
                 }
                 $remnantGroups[$key]['qty']++;
                 $remnantGroups[$key]['area'] += $rem->areaM2();
-                $sheetNum = $sheet->index + 1;
+                $sheetNum = $sheetNo[$sheetKey];
                 if (!in_array($sheetNum, $remnantGroups[$key]['sheets'], true)) {
                     $remnantGroups[$key]['sheets'][] = $sheetNum;
                 }
@@ -539,7 +599,7 @@ final class PdfReport
                    . '<th>' . $this->e($this->t('col_height')) . '</th>'
                    . '<th>' . $this->e($this->t('col_area')) . '</th>'
                    . '<th>' . $this->e($this->t('col_qty')) . '</th>'
-                   . '<th>' . $this->e($this->t('col_sheets')) . '</th>'
+                   . '<th>' . $sheetCol . '</th>'
                    . '</tr>';
             $rowIdx = 1;
             foreach ($remnantGroups as $group) {
@@ -596,28 +656,42 @@ final class PdfReport
     // -------------------------------------------------------------------------
 
     /**
-     * @param int $pieceOffset Global 1-based index of the first piece on this sheet.
+     * @param int   $number       Sheet number, or with grouping the plan number.
+     * @param int   $count        Sheets drawn by this diagram (1 without grouping).
+     * @param int   $pieceOffset  Running 1-based index of the first drawn piece (clip-path ids).
+     * @param int[] $pieceNumbers The [N] label of each piece, keyed like $sheet->pieces.
      */
-    private function buildSheetBlock(SheetPlan $sheet, int $pieceOffset): string
+    private function buildSheetBlock(SheetPlan $sheet, int $number, int $count, int $pieceOffset, array $pieceNumbers): string
     {
+        $wrap = '<div class="diagram-wrap">';
+        if ($this->oneSheetPerPage) {
+            // Centre the drawing vertically in the space under the header.
+            [, $dh, $scale] = $this->diagramGeometry($sheet);
+            $wrap = sprintf(
+                '<div class="diagram-wrap" style="padding-top:%.1fmm">',
+                max(0.0, ($this->diagramMaxH - $dh * $scale) / 2)
+            );
+        }
+
         return '<div class="sheet-block">'
-             . $this->buildSheetHeader($sheet)
-             . '<div class="diagram-wrap">'
-             . $this->buildSheetSvg($sheet, $pieceOffset)
+             . $this->buildSheetHeader($sheet, $number, $count)
+             . $wrap
+             . $this->buildSheetSvg($sheet, $pieceOffset, $pieceNumbers)
              . '</div>'
              . '</div>';
     }
 
-    private function buildSheetHeader(SheetPlan $sheet): string
+    /** Header of one diagram; the quantities are totals over the $count sheets it stands for. */
+    private function buildSheetHeader(SheetPlan $sheet, int $number, int $count): string
     {
         $pieceArea = 0.0;
         foreach ($sheet->pieces as $p) {
             $pieceArea += ($p->width * $p->height) / 1_000_000;
         }
-        $sheetArea = round(($sheet->width * $sheet->height) / 1_000_000, 4);
+        $pieceArea *= $count;
+        $sheetArea = round(($sheet->width * $sheet->height) / 1_000_000 * $count, 4);
         $wasteArea = round(max(0.0, $sheetArea - $pieceArea), 4);
-        $sheetNum  = $sheet->index + 1;
-        $pieceCnt  = count($sheet->pieces);
+        $pieceCnt  = count($sheet->pieces) * $count;
         $pcs       = $this->e($this->t('pcs'));
         $dimStr    = $this->fmtNum($sheet->width) . ' × ' . $this->fmtNum($sheet->height) . ' mm';
         if ($sheet->upsizedFrom !== null) {
@@ -626,29 +700,33 @@ final class PdfReport
                 $this->fmtNum($sheet->upsizedFrom['width']) . ' × ' . $this->fmtNum($sheet->upsizedFrom['height']) . ' mm'
             ) . ')';
         }
+        $qty       = $count . ' ' . $pcs . ' (' . $sheetArea . ' m²)';
+        if ($count > 1) {
+            $qty = '<strong>' . $qty . '</strong>';
+        }
 
         $extra = '';
         $remnantCnt = count($sheet->remnants ?? []);
         if ($remnantCnt > 0) {
             $extra .= '&nbsp;|&nbsp; ' . $this->e($this->t('sheet_remnant')) . ': '
-                    . ($sheet->remnantM2 ?? 0) . ' m² (' . $remnantCnt . ' ' . $pcs . ')';
+                    . round(($sheet->remnantM2 ?? 0) * $count, 4) . ' m² (' . ($remnantCnt * $count) . ' ' . $pcs . ')';
         }
         if ($sheet->sealMm !== null) {
             $extra .= '&nbsp;|&nbsp; ' . $this->e($this->t('sheet_seal')) . ': '
-                    . round($sheet->sealMm / 1000, 2) . ' m';
+                    . round($sheet->sealMm * $count / 1000, 2) . ' m';
         }
 
         return '
         <table class="sh-hdr" cellspacing="0" cellpadding="0">
           <tr>
-            <td class="sh-num">' . $sheetNum . '</td>
+            <td class="sh-num">' . $number . '</td>
             <td class="sh-info">
               <div class="main">' . $this->e($this->meta['title']) . '</div>
               <div class="sub">' . $this->e($this->t('material')) . ': ' . $this->e($this->meta['material']) . '</div>
               <div class="sub">' . $this->e($dimStr) . '</div>
             </td>
             <td class="sh-right">
-              1 ' . $pcs . ' (' . $sheetArea . ' m²)<br>
+              ' . $qty . '<br>
               <span class="sh-util">' . $sheet->usedPct . ' %</span>
             </td>
           </tr>
@@ -669,26 +747,12 @@ final class PdfReport
     /**
      * Builds an inline SVG cutting plan diagram for a single sheet.
      *
-     * @param int $pieceOffset Global 1-based piece index for this sheet's first piece.
+     * @param int   $pieceOffset  Running 1-based index of the first drawn piece (clip-path ids).
+     * @param int[] $pieceNumbers The [N] label of each piece, keyed like $sheet->pieces.
      */
-    private function buildSheetSvg(SheetPlan $sheet, int $pieceOffset): string
+    private function buildSheetSvg(SheetPlan $sheet, int $pieceOffset, array $pieceNumbers): string
     {
-        $sw = $sheet->width;
-        $sh = $sheet->height;
-
-        // Always display the longer dimension horizontally so the diagram
-        // makes the best use of the page width.
-        // When height > width, rotate the display 90°:
-        //   display X axis ← stock Y axis (height)
-        //   display Y axis ← stock X axis (width)
-        $rotate = ($sh > $sw);
-
-        // dw = horizontal span, dh = vertical span in the SVG canvas
-        $dw = $rotate ? $sh : $sw;
-        $dh = $rotate ? $sw : $sh;
-
-        // Scale so the diagram fits within DIAGRAM_MAX_W × DIAGRAM_MAX_H (mm)
-        $scale = min(self::DIAGRAM_MAX_W / $dw, self::DIAGRAM_MAX_H / $dh);
+        [$dw, $dh, $scale, $rotate] = $this->diagramGeometry($sheet);
 
         // SVG canvas dimensions in mm
         $vw = round($dw * $scale, 3);
@@ -697,8 +761,8 @@ final class PdfReport
         // Base font sizes in mm (used for pieces ≥ 500 mm on shortest displayed side).
         // For smaller pieces the font is scaled down proportionally so labels
         // never overflow or overlap inside the piece rectangle.
-        $baseDimFont = 4.0;
-        $baseIdxFont = 3.64;
+        $baseDimFont = 4.0 * $this->fontFactor;
+        $baseIdxFont = 3.64 * $this->fontFactor;
 
         $svg = sprintf(
             '<svg xmlns="http://www.w3.org/2000/svg" '
@@ -735,7 +799,7 @@ final class PdfReport
                 $labelVert = $this->fmtNum($p->height);
             }
 
-            $globalLabel = $pieceOffset + $localIdx;
+            $globalLabel = $pieceNumbers[$localIdx];
 
             // Clip path keeps all labels inside piece boundaries
             $clipId = 'clip_' . $pieceOffset . '_' . $localIdx;
@@ -908,6 +972,119 @@ final class PdfReport
 
         $svg .= '</svg>';
         return $svg;
+    }
+
+    /**
+     * Drawing geometry of a sheet. The longer dimension is always displayed
+     * horizontally so the diagram makes the best use of the page width; when
+     * height > width the display is rotated 90°:
+     *   display X axis ← stock Y axis (height)
+     *   display Y axis ← stock X axis (width)
+     *
+     * @return array{0: float, 1: float, 2: float, 3: bool}
+     *         [horizontal span, vertical span (sheet mm), scale to fit the
+     *         diagram box (SVG mm per sheet mm), rotated]
+     */
+    private function diagramGeometry(SheetPlan $sheet): array
+    {
+        $rotate = $sheet->height > $sheet->width;
+        $dw     = $rotate ? $sheet->height : $sheet->width;
+        $dh     = $rotate ? $sheet->width : $sheet->height;
+
+        return [$dw, $dh, min($this->diagramMaxW / $dw, $this->diagramMaxH / $dh), $rotate];
+    }
+
+    // -------------------------------------------------------------------------
+    // Grouping
+    // -------------------------------------------------------------------------
+
+    /**
+     * The diagrams to draw: one per sheet numbered by the sheet, or with
+     * grouping one per distinct layout numbered 1, 2, … in order of first
+     * appearance. 'keys' are the NestingResult::$sheets keys a diagram stands for.
+     *
+     * @return list<array{sheet: SheetPlan, number: int, keys: list<int|string>}>
+     */
+    private function sheetGroups(): array
+    {
+        $groups = [];
+        foreach ($this->result->sheets as $key => $sheet) {
+            $signature = $this->groupIdenticalSheets ? $this->layoutSignature($sheet) : (string) $key;
+            if (!isset($groups[$signature])) {
+                $groups[$signature] = [
+                    'sheet'  => $sheet,
+                    'number' => $this->groupIdenticalSheets ? count($groups) + 1 : $sheet->index + 1,
+                    'keys'   => [],
+                ];
+            }
+            $groups[$signature]['keys'][] = $key;
+        }
+        return array_values($groups);
+    }
+
+    /**
+     * Equal for two sheets that draw the same: same format, and the same
+     * pieces (size, rotation, label) and remnants at the same positions,
+     * in any order.
+     */
+    private function layoutSignature(SheetPlan $sheet): string
+    {
+        $pieces = array_map(
+            fn(Placement $p) => json_encode([$p->x, $p->y, $p->width, $p->height, $p->rotated, $p->label]),
+            $sheet->pieces
+        );
+        $remnants = array_map(
+            fn(Remnant $r) => json_encode([$r->x, $r->y, $r->width, $r->height]),
+            $sheet->remnants ?? []
+        );
+        sort($pieces, SORT_STRING);
+        sort($remnants, SORT_STRING);
+        // upsizedFrom keeps an enlarged sheet apart from one that merely has the
+        // same final layout – its header note would otherwise apply to both.
+        return json_encode([$sheet->width, $sheet->height, $sheet->upsizedFrom, $pieces, $remnants]);
+    }
+
+    /**
+     * Rows of the pieces table: placed pieces grouped by size and label, in
+     * order of first appearance. Rotated and non-rotated variants of the same
+     * cut are NOT merged (they differ visually on grain-direction material).
+     *
+     * @param array<int|string, int> $sheetNo  See html().
+     * @return array<string, array{width: float, height: float, label: ?string, labelled: bool, qty: int, area: float, sheets: int[], rotated: bool}>
+     */
+    private function pieceGroups(array $sheetNo): array
+    {
+        $groups = [];
+        foreach ($this->result->sheets as $sheetKey => $sheet) {
+            foreach ($sheet->pieces as $p) {
+                $key = $this->pieceKey($p);
+                if (!isset($groups[$key])) {
+                    $groups[$key] = [
+                        'width'    => $p->width,
+                        'height'   => $p->height,
+                        'label'    => $p->label,
+                        'labelled' => false,
+                        'qty'      => 0,
+                        'area'     => 0.0,
+                        'sheets'   => [],
+                        'rotated'  => $p->rotated,
+                    ];
+                }
+                $groups[$key]['qty']++;
+                $groups[$key]['area'] += ($p->width * $p->height) / 1_000_000;
+                $groups[$key]['labelled'] = $groups[$key]['labelled'] || $p->label !== null;
+                $sheetNum = $sheetNo[$sheetKey];
+                if (!in_array($sheetNum, $groups[$key]['sheets'], true)) {
+                    $groups[$key]['sheets'][] = $sheetNum;
+                }
+            }
+        }
+        return $groups;
+    }
+
+    private function pieceKey(Placement $p): string
+    {
+        return $p->width . ':' . $p->height . ':' . ($p->label ?? '');
     }
 
     // -------------------------------------------------------------------------

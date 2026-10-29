@@ -25,6 +25,23 @@
   unchanged. `PdfReport` shows the net material in the statistics and notes
   the original format in the header of an enlarged sheet (label keys
   `stat_net_material`, `sheet_upsized`).
+- `Render\PdfReport`: the summary statistics show the total material
+  consumption (area of all sheets used, `NestingResult::$materialM2`) right
+  after Waste. New label key `stat_material` (`Material consumption` /
+  `Spotřeba materiálu`); a custom label map without it falls back to the
+  English text.
+- `Render\PdfReport`: new constructor argument `groupIdenticalSheets`
+  (default `false`, output unchanged). When on, sheets with the same format
+  (and the same original format, see `upsized_from`) and the same pieces and
+  remnants at the same positions share one diagram; its header gives the
+  number of sheets (`24 pcs (302.4 m²)`) and the totals over them. Diagrams
+  are numbered as plans, the pieces and remnants tables refer to plan numbers
+  (column label key `col_plans`: `Plan` / `Plán`), and `[N]` in a diagram is
+  the row of the piece in the pieces table.
+- `Render\PdfReport`: new constructor argument `oneSheetPerPage` (default
+  `false`, output unchanged). When on, every diagram gets its own A4
+  landscape page (the summary stays portrait), about 1.5× larger with
+  proportionally larger labels.
 
 ### Fixed
 

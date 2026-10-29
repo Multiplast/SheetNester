@@ -164,6 +164,21 @@ Both renderers take a label map as an extra argument (`SvgRenderer::LABELS_CS`,
 `PdfReport::LABELS_CS`, or your own with the same keys); the defaults are
 English. `PdfReport::html()` works without mPDF.
 
+`PdfReport` draws one diagram per sheet. With `groupIdenticalSheets: true`,
+sheets with the same format and layout share one diagram whose header gives
+the number of sheets and the totals over them. The diagrams are then numbered
+as plans, the pieces and remnants tables refer to those plan numbers, and
+`[N]` in a diagram is the row of the piece in the pieces table:
+
+```php
+$pdf = new PdfReport($result, $meta, PdfReport::LABELS_CS, groupIdenticalSheets: true);
+```
+
+By default two diagrams share a portrait A4 page. With `oneSheetPerPage: true`
+every diagram gets its own A4 landscape page and the summary stays portrait.
+Drawings and labels are about 1.5× larger, at the cost of roughly twice the
+pages, so it pairs well with `groupIdenticalSheets`.
+
 ## Tests
 
 ```sh
