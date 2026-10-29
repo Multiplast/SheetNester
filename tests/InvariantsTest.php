@@ -43,7 +43,7 @@ final class InvariantsTest extends TestCase
                 $result = (new SheetNester())->solve(self::job($spec, $objective, new Search(restarts: 5, seed: $seed)));
 
                 $this->assertAll($result, $spec, $objective->name, $label);
-                $this->assertNotWorseThanSinglePass($result, $baseline, $objective, $label);
+                $this->assertNotWorseThanSinglePass($result, $baseline, $objective, $spec['remnants']->upsize, $label);
             }
         }
     }
@@ -77,7 +77,14 @@ final class InvariantsTest extends TestCase
             'pieces'         => $pieces,
             'kerf'           => [0.0, 3.0][mt_rand(0, 1)],
             'grain'          => [Grain::NONE, Grain::ALONG_HEIGHT][mt_rand(0, 1)],
-            'remnants'       => [Remnants::none(), Remnants::auto(200.0), Remnants::defined($remnantFormats)][mt_rand(0, 2)],
+            'remnants'       => [
+                Remnants::none(),
+                Remnants::auto(200.0),
+                Remnants::atLeast(600.0, 300.0),
+                Remnants::defined($remnantFormats),
+                Remnants::atLeast(600.0, 300.0, upsize: true),
+                Remnants::defined($remnantFormats, upsize: true),
+            ][mt_rand(0, 5)],
             'remnantFormats' => $remnantFormats,
         ];
     }
@@ -110,6 +117,7 @@ final class InvariantsTest extends TestCase
         $this->assertCuts($result, $label);
         $this->assertSeal($result, $spec, $label);
         $this->assertRemnants($result, $spec, $label);
+        $this->assertUpsize($result, $spec, $label);
     }
 
     private function assertStructure(NestingResult $result, string $objective, string $label): void
@@ -353,6 +361,7 @@ final class InvariantsTest extends TestCase
         if (!$option->enabled()) {
             self::assertNull($result->remnantM2, $label);
             self::assertNull($result->remnantPct, $label);
+            self::assertNull($result->netMaterialM2, $label);
             foreach ($result->sheets as $sheet) {
                 self::assertNull($sheet->remnants, $label);
                 self::assertNull($sheet->remnantM2, $label);
@@ -387,7 +396,10 @@ final class InvariantsTest extends TestCase
                 self::assertLessThanOrEqual($sh + self::EPS, $r->y + $r->height, $where);
 
                 if ($option->mode === Remnants::AUTO) {
-                    self::assertGreaterThanOrEqual($option->minSide - self::EPS, min($r->width, $r->height), "{$where}: shorter than minSide");
+                    $fits = ($r->width >= $option->minWidth - self::EPS && $r->height >= $option->minHeight - self::EPS)
+                        || ($spec['grain'] === Grain::NONE
+                            && $r->width >= $option->minHeight - self::EPS && $r->height >= $option->minWidth - self::EPS);
+                    self::assertTrue($fits, "{$where}: below the minimum {$option->minWidth}x{$option->minHeight}");
                 } else {
                     self::assertArrayHasKey("{$r->width}x{$r->height}", $allowed, "{$where}: not a registered remnant format");
                 }
@@ -419,17 +431,54 @@ final class InvariantsTest extends TestCase
         self::assertEqualsWithDelta(round($total, 4), $result->remnantM2, 1e-9, "{$label}: remnantM2");
         $pct = $result->materialM2 > 0 ? round($total / $result->materialM2 * 100, 2) : 0.0;
         self::assertEqualsWithDelta($pct, $result->remnantPct, 0.011, "{$label}: remnantPct");
+        self::assertEqualsWithDelta(round($result->materialM2 - $total, 4), $result->netMaterialM2, 1e-9, "{$label}: netMaterialM2");
+    }
+
+    /**
+     * Remnants::$upsize: an enlarged sheet records a smaller registered format
+     * that still holds all its pieces, and the enlargement has bought a usable
+     * remnant – it is never applied without one. Without upsize no sheet is
+     * enlarged. (Stock limits and geometry are covered by the other checks.)
+     *
+     * @param array<string, mixed> $spec
+     */
+    private function assertUpsize(NestingResult $result, array $spec, string $label): void
+    {
+        /** @var Remnants $option */
+        $option  = $spec['remnants'];
+        $formats = [];
+        foreach ($spec['formats'] as [$w, $h]) {
+            $formats["{$w}x{$h}"] = true;
+        }
+
+        foreach ($result->sheets as $sheet) {
+            $from = $sheet->upsizedFrom;
+            if ($from === null) {
+                continue;
+            }
+            $where = "{$label}: sheet {$sheet->index} enlarged from {$from['width']}x{$from['height']}";
+            self::assertTrue($option->upsize, "{$where} although upsize is off");
+            self::assertArrayHasKey("{$from['width']}x{$from['height']}", $formats, "{$where}: not a registered format");
+            self::assertLessThan($sheet->width * $sheet->height, $from['width'] * $from['height'], "{$where}: not larger");
+            foreach ($sheet->pieces as $p) {
+                self::assertLessThanOrEqual($from['width'] + self::EPS, $p->x + $p->width, "{$where}: piece did not fit the original format");
+                self::assertLessThanOrEqual($from['height'] + self::EPS, $p->y + $p->height, "{$where}: piece did not fit the original format");
+            }
+            self::assertGreaterThan(0.0, $sheet->remnantM2, "{$where}: no usable remnant gained");
+        }
     }
 
     /**
      * Pass 0 of every multi-pass search is the single FFD pass, and the best
      * candidate is chosen by (fewest unplaced, lowest primary cost) – so the
      * multi-pass result can never be worse than the single pass on that key.
+     * With Remnants::$upsize the comparison happens before the sheets are
+     * enlarged, so only the unplaced count is comparable afterwards.
      */
-    private function assertNotWorseThanSinglePass(NestingResult $result, NestingResult $baseline, Objective $objective, string $label): void
+    private function assertNotWorseThanSinglePass(NestingResult $result, NestingResult $baseline, Objective $objective, bool $upsize, string $label): void
     {
         self::assertLessThanOrEqual($baseline->unplacedCount(), $result->unplacedCount(), "{$label}: more unplaced than the single pass");
-        if ($result->unplacedCount() !== $baseline->unplacedCount()) {
+        if ($result->unplacedCount() !== $baseline->unplacedCount() || $upsize) {
             return;
         }
 

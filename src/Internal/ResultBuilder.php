@@ -54,7 +54,7 @@ final class ResultBuilder
                     $p->line !== null ? ($this->lineLabels[$p->line] ?? null) : null
                 );
             }
-            $plans[] = new SheetPlan(
+            $plan = new SheetPlan(
                 $sheet->index,
                 $sheet->format->width,
                 $sheet->format->height,
@@ -63,6 +63,10 @@ final class ResultBuilder
                 $this->cuts->forSheet($sheet),
                 $this->cuts->sealMm($sheet)
             );
+            if ($sheet->upsizedFrom !== null) {
+                $plan->upsizedFrom = ['width' => $sheet->upsizedFrom->width, 'height' => $sheet->upsizedFrom->height];
+            }
+            $plans[] = $plan;
         }
 
         // Stock usage – derived from winning sheets.
@@ -211,7 +215,8 @@ final class ResultBuilder
     /**
      * Computes usable remnants for the winning sheets and stores them in the
      * result (SheetPlan::$remnants / $remnantM2, NestingResult::$remnantM2 /
-     * $remnantPct). One deterministic work budget is shared by all sheets.
+     * $remnantPct / $netMaterialM2). One deterministic work budget is shared
+     * by all sheets.
      *
      * @param Sheet[] $sheets  Aligned with $result->sheets.
      */
@@ -239,9 +244,10 @@ final class ResultBuilder
             $totalRemnantM2 += $areaM2;
         }
 
-        $result->remnantM2  = round($totalRemnantM2, 4);
-        $result->remnantPct = $result->materialM2 > 0
+        $result->remnantM2     = round($totalRemnantM2, 4);
+        $result->remnantPct    = $result->materialM2 > 0
             ? round($totalRemnantM2 / $result->materialM2 * 100, 2)
             : 0.0;
+        $result->netMaterialM2 = round(max(0.0, $result->materialM2 - $totalRemnantM2), 4);
     }
 }

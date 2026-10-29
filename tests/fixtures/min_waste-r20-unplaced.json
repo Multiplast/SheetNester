@@ -354,8 +354,15 @@
                     }
                 ]
             },
-            "remnants": [],
-            "remnant_area_m2": 0.0
+            "remnants": [
+                {
+                    "x": 4000.0,
+                    "y": 1620.0,
+                    "width": 1000.0,
+                    "height": 480.0
+                }
+            ],
+            "remnant_area_m2": 0.48
         },
         {
             "sheet_index": 3,
@@ -768,8 +775,15 @@
                     }
                 ]
             },
-            "remnants": [],
-            "remnant_area_m2": 0.0
+            "remnants": [
+                {
+                    "x": 4000.0,
+                    "y": 900.0,
+                    "width": 500.0,
+                    "height": 920.0
+                }
+            ],
+            "remnant_area_m2": 0.46
         },
         {
             "sheet_index": 7,
@@ -1138,8 +1152,21 @@
                     }
                 ]
             },
-            "remnants": [],
-            "remnant_area_m2": 0.0
+            "remnants": [
+                {
+                    "x": 2200.0,
+                    "y": 810.0,
+                    "width": 900.0,
+                    "height": 240.0
+                },
+                {
+                    "x": 5100.0,
+                    "y": 810.0,
+                    "width": 900.0,
+                    "height": 240.0
+                }
+            ],
+            "remnant_area_m2": 0.432
         },
         {
             "sheet_index": 11,
@@ -1209,8 +1236,15 @@
                     }
                 ]
             },
-            "remnants": [],
-            "remnant_area_m2": 0.0
+            "remnants": [
+                {
+                    "x": 2000.0,
+                    "y": 1860.0,
+                    "width": 1000.0,
+                    "height": 240.0
+                }
+            ],
+            "remnant_area_m2": 0.24
         },
         {
             "sheet_index": 12,
@@ -1662,8 +1696,15 @@
                     }
                 ]
             },
-            "remnants": [],
-            "remnant_area_m2": 0.0
+            "remnants": [
+                {
+                    "x": 0.0,
+                    "y": 1620.0,
+                    "width": 270.0,
+                    "height": 200.0
+                }
+            ],
+            "remnant_area_m2": 0.054
         },
         {
             "sheet_index": 17,
@@ -1726,9 +1767,15 @@
                     "y": 0.0,
                     "width": 900.0,
                     "height": 1050.0
+                },
+                {
+                    "x": 2200.0,
+                    "y": 810.0,
+                    "width": 900.0,
+                    "height": 240.0
                 }
             ],
-            "remnant_area_m2": 0.945
+            "remnant_area_m2": 1.161
         },
         {
             "sheet_index": 18,
@@ -1993,8 +2040,15 @@
                     }
                 ]
             },
-            "remnants": [],
-            "remnant_area_m2": 0.0
+            "remnants": [
+                {
+                    "x": 2200.0,
+                    "y": 810.0,
+                    "width": 300.0,
+                    "height": 240.0
+                }
+            ],
+            "remnant_area_m2": 0.072
         },
         {
             "sheet_index": 23,
@@ -2193,7 +2247,7 @@
     "total_seal_mm": 248780.0,
     "permutations_tested": 24,
     "time_budget_hit": false,
-    "total_remnant_m2": 12.1684,
-    "total_remnant_pct": 8.03,
+    "total_remnant_m2": 14.1224,
+    "total_remnant_pct": 9.32,
     "strategy": "min_waste"
 }

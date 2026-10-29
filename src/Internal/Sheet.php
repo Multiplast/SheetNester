@@ -17,6 +17,9 @@ class Sheet
     /** @var FreeRect[] */
     public array $freeRects;
 
+    /** The format the sheet had before FormatUpsizer enlarged it; null otherwise. */
+    public ?StockFormat $upsizedFrom = null;
+
     public function __construct(
         public int         $index,
         public StockFormat $format,

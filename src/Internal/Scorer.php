@@ -48,7 +48,8 @@ final class Scorer
      * unplaced count AND primary cost:
      *  - min_cuts:     total internal cut length in mm (shorter saw path),
      *  - best_remnant: negative area (m²) of the largest single empty
-     *                  rectangle across all sheets (prefer one big offcut).
+     *                  rectangle across all sheets (prefer one big offcut;
+     *                  independent of the Remnants minimum and formats).
      *
      * @param Sheet[] $sheets  Post-reduction sheets of the candidate result.
      */

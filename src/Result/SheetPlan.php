@@ -19,6 +19,14 @@ final class SheetPlan
     public ?float $remnantM2 = null;
 
     /**
+     * The stock format the sheet had before Remnants::$upsize gave it a larger
+     * one for a usable remnant; null when the sheet was not enlarged.
+     *
+     * @var array{width: float, height: float}|null
+     */
+    public ?array $upsizedFrom = null;
+
+    /**
      * @param Placement[] $pieces
      * @param float|null  $sealMm  Channel ends to seal on this sheet (mm); null for
      *                             a material without channels (Grain::NONE).
@@ -49,6 +57,7 @@ final class SheetPlan
                 ? null
                 : array_map(fn(Remnant $r) => $r->toArray(), $this->remnants),
             'remnant_m2' => $this->remnantM2,
+            'upsized_from' => $this->upsizedFrom,
         ];
     }
 

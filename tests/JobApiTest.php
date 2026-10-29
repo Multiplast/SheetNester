@@ -33,6 +33,7 @@ final class JobApiTest extends TestCase
         self::assertTrue($job->search()->portfolio);
         self::assertFalse($job->search()->isSinglePass());
         self::assertFalse($job->remnants()->enabled());
+        self::assertFalse($job->remnants()->upsize);
         self::assertSame([], $job->stock());
         self::assertSame([], $job->pieces());
     }
@@ -46,6 +47,8 @@ final class JobApiTest extends TestCase
             'negative restarts'  => fn() => new Search(restarts: -1),
             'zero time budget'   => fn() => new Search(timeBudgetMs: 0),
             'zero remnant side'  => fn() => Remnants::auto(0),
+            'zero remnant width' => fn() => Remnants::atLeast(0, 100),
+            'zero remnant height'=> fn() => Remnants::atLeast(100, 0),
             'no remnant formats' => fn() => Remnants::defined([]),
             'bad remnant format' => fn() => Remnants::defined([[1000, 0]]),
             'stock width 0'      => fn() => NestingJob::create()->addStock(0, 1000),
@@ -64,6 +67,24 @@ final class JobApiTest extends TestCase
 
         Grain::assertValid(Grain::ALONG_WIDTH);
         self::assertFalse(Grain::allowsRotation(Grain::ALONG_WIDTH));
+    }
+
+    public function testAutoRemnantsAreTheSquareCaseOfAtLeast(): void
+    {
+        $auto = Remnants::auto(200);
+        self::assertSame([Remnants::AUTO, 200.0, 200.0, 200.0], [$auto->mode, $auto->minWidth, $auto->minHeight, $auto->minSide]);
+
+        $atLeast = Remnants::atLeast(500, 1000);
+        self::assertSame([Remnants::AUTO, 500.0, 1000.0, 500.0], [$atLeast->mode, $atLeast->minWidth, $atLeast->minHeight, $atLeast->minSide]);
+        self::assertTrue($atLeast->enabled());
+        self::assertFalse($atLeast->upsize);
+
+        self::assertSame([0.0, 0.0], [Remnants::none()->minWidth, Remnants::defined([[100, 100]])->minHeight]);
+
+        self::assertTrue(Remnants::atLeast(500, 1000, upsize: true)->upsize);
+        self::assertTrue(Remnants::auto(200, upsize: true)->upsize);
+        self::assertTrue(Remnants::defined([[100, 100]], upsize: true)->upsize);
+        self::assertFalse(Remnants::none()->upsize);
     }
 
     public function testSealFollowsTheGrainAxis(): void
@@ -148,7 +169,10 @@ final class JobApiTest extends TestCase
         self::assertSame(count($result->sheets), $array['totals']['sheets']);
         self::assertSame($result->materialM2, $array['totals']['material_m2']);
         self::assertSame($result->sealMm, $array['totals']['seal_mm']);
-        self::assertSame(['index', 'width', 'height', 'used_pct', 'seal_mm', 'pieces', 'cuts', 'remnants', 'remnant_m2'], array_keys($array['sheets'][0]));
+        self::assertSame(['sheets', 'material_m2', 'utilization_pct', 'waste_pct_avg', 'cut_count', 'cuts_mm', 'cuts_horizontal_mm', 'cuts_vertical_mm', 'seal_mm', 'remnant_m2', 'remnant_pct', 'net_material_m2', 'unplaced'], array_keys($array['totals']));
+        self::assertSame($result->netMaterialM2, $array['totals']['net_material_m2']);
+        self::assertSame(round($result->materialM2 - $result->remnantM2, 4), $result->netMaterialM2);
+        self::assertSame(['index', 'width', 'height', 'used_pct', 'seal_mm', 'pieces', 'cuts', 'remnants', 'remnant_m2', 'upsized_from'], array_keys($array['sheets'][0]));
         self::assertSame(['count', 'horizontal_mm', 'vertical_mm', 'total_mm', 'horizontal', 'vertical'], array_keys($array['sheets'][0]['cuts']));
         self::assertSame(['x', 'y', 'width', 'height', 'rotated', 'label'], array_keys($array['sheets'][0]['pieces'][0]));
         self::assertIsString(json_encode($array, JSON_THROW_ON_ERROR));

@@ -31,7 +31,8 @@ final class Solver
 
     /**
      * @param  array<int, array{float, float}> $allPieces  FFD-sorted expanded pieces.
-     * @return array{NestingResult, Sheet[]}  [result incl. passes / timeBudgetHit, sheets]
+     * @return array{NestingResult, Sheet[], array<int, array{width: float, height: float, line: int, reason: string}>}
+     *         [result incl. passes / timeBudgetHit, sheets, unplaced pieces as the packer reported them]
      */
     public function solve(array $allPieces): array
     {
@@ -48,10 +49,10 @@ final class Solver
      */
     private function solveSinglePass(array $allPieces): array
     {
-        [$result, $sheets] = $this->runPipeline($allPieces);
+        [$result, $sheets, $unplaced] = $this->runPipeline($allPieces);
         $result->passes        = 1;
         $result->timeBudgetHit = false;
-        return [$result, $sheets];
+        return [$result, $sheets, $unplaced];
     }
 
     /**
@@ -75,6 +76,7 @@ final class Solver
     {
         $bestResult   = null;
         $bestSheets   = [];
+        $bestLeft     = [];   // unplaced pieces of the best candidate (packer output)
         $bestPrimary  = PHP_FLOAT_MAX;
         $bestTiebreak = null;
         $tested       = 0;
@@ -121,7 +123,7 @@ final class Solver
                 break;
             }
 
-            [$result, $sheets] = $this->runPipeline($pieces);
+            [$result, $sheets, $unplaced] = $this->runPipeline($pieces);
             $tested++;
 
             $unplacedCount = $result->unplacedCount();
@@ -156,6 +158,7 @@ final class Solver
             if ($isBetter) {
                 $bestResult   = $result;
                 $bestSheets   = $sheets;
+                $bestLeft     = $unplaced;
                 $bestPrimary  = $candPrimary;
                 // Known only when the win came through the tie-break branch;
                 // otherwise recomputed lazily on the next primary-cost tie.
@@ -165,14 +168,14 @@ final class Solver
 
         $bestResult->passes        = $tested;
         $bestResult->timeBudgetHit = $budgetHit;
-        return [$bestResult, $bestSheets];
+        return [$bestResult, $bestSheets, $bestLeft];
     }
 
     /**
      * One run of the pipeline on a given piece ordering.
      *
      * @param  array<int, array{float, float}> $pieces
-     * @return array{NestingResult, Sheet[]}
+     * @return array{NestingResult, Sheet[], array<int, array{width: float, height: float, line: int, reason: string}>}
      */
     private function runPipeline(array $pieces): array
     {
@@ -185,7 +188,7 @@ final class Solver
         // Step 3 – Post-process: shrink sheet formats where possible
         $this->reducer->reduce($sheets);
 
-        return [$this->builder->build($sheets, $unplaced), $sheets];
+        return [$this->builder->build($sheets, $unplaced), $sheets, $unplaced];
     }
 
     /**

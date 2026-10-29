@@ -67,6 +67,14 @@ final class GoldenTest extends TestCase
                 1,
                 [[2000, 2000, 30], [7000, 100, 1]],
             ],
+            // minimum remnant size in both dimensions + larger formats for usable remnants
+            'min_waste-r20-atleast-upsize' => [
+                [
+                    'search'   => new Search(restarts: 20, seed: 42),
+                    'remnants' => Remnants::atLeast(1000, 1000, upsize: true),
+                ],
+                GoldenDataset::STOCK, [],
+            ],
         ];
     }
 

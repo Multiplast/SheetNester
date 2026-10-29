@@ -33,6 +33,13 @@ final class NestingResult
     public ?float $remnantPct = null;
 
     /**
+     * Material used less the marked remnants (m²): what the job consumes when
+     * the remnants go back to stock – the quantity Remnants::$upsize
+     * minimises per sheet. Null when remnant marking is off.
+     */
+    public ?float $netMaterialM2 = null;
+
+    /**
      * @param SheetPlan[]      $sheets
      * @param StockUsage[]     $stockUsage
      * @param UnplacedPieces[] $unplaced
@@ -100,6 +107,9 @@ final class NestingResult
                 ), $s['remnants']);
                 $plan->remnantM2 = isset($s['remnant_m2']) ? (float) $s['remnant_m2'] : null;
             }
+            if (isset($s['upsized_from'])) {
+                $plan->upsizedFrom = ['width' => (float) $s['upsized_from']['width'], 'height' => (float) $s['upsized_from']['height']];
+            }
             $sheets[] = $plan;
         }
 
@@ -128,6 +138,7 @@ final class NestingResult
         $result->calculationMs = (float) $a['calculation_ms'];
         $result->remnantM2     = isset($t['remnant_m2']) ? (float) $t['remnant_m2'] : null;
         $result->remnantPct    = isset($t['remnant_pct']) ? (float) $t['remnant_pct'] : null;
+        $result->netMaterialM2 = isset($t['net_material_m2']) ? (float) $t['net_material_m2'] : null;
 
         return $result;
     }
@@ -205,8 +216,9 @@ final class NestingResult
         $result->timeBudgetHit = (bool) ($a['time_budget_hit'] ?? false);
         $result->calculationMs = (float) ($a['calculation_time_ms'] ?? 0.0);
         if (array_key_exists('total_remnant_m2', $a)) {
-            $result->remnantM2  = (float) $a['total_remnant_m2'];
-            $result->remnantPct = (float) ($a['total_remnant_pct'] ?? 0.0);
+            $result->remnantM2     = (float) $a['total_remnant_m2'];
+            $result->remnantPct    = (float) ($a['total_remnant_pct'] ?? 0.0);
+            $result->netMaterialM2 = round(max(0.0, $result->materialM2 - $result->remnantM2), 4);
         }
 
         return $result;
@@ -248,6 +260,7 @@ final class NestingResult
                 'seal_mm'            => $this->sealMm,
                 'remnant_m2'         => $this->remnantM2,
                 'remnant_pct'        => $this->remnantPct,
+                'net_material_m2'    => $this->netMaterialM2,
                 'unplaced'           => $this->unplacedCount(),
             ],
             'sheets'          => array_map(fn(SheetPlan $s) => $s->toArray(), $this->sheets),

@@ -34,6 +34,7 @@ final class PdfReport
         'material'         => 'Material',
         'stat_pieces'      => 'Placed pieces',
         'stat_waste'       => 'Waste',
+        'stat_net_material' => 'Net material (less remnants)',
         'stat_utilization' => 'Material utilization',
         'stat_sheets'      => 'Sheets',
         'stat_objective'   => 'Objective',
@@ -67,6 +68,7 @@ final class PdfReport
         'sheet_waste'      => 'Waste',
         'sheet_remnant'    => 'Usable remnant',
         'sheet_seal'       => 'Seal',
+        'sheet_upsized'    => 'enlarged from %s for a usable remnant',
         'pcs'              => 'pcs',
         'company_id'       => 'Company ID',
         'company_vat_id'   => 'VAT ID',
@@ -77,6 +79,7 @@ final class PdfReport
         'material'         => 'Materiál',
         'stat_pieces'      => 'Uložené dílce',
         'stat_waste'       => 'Odpad',
+        'stat_net_material' => 'Čistá spotřeba (bez zbytků)',
         'stat_utilization' => 'Využití materiálu',
         'stat_sheets'      => 'Celkem desek',
         'stat_objective'   => 'Cíl optimalizace',
@@ -110,6 +113,7 @@ final class PdfReport
         'sheet_waste'      => 'Odpad',
         'sheet_remnant'    => 'Použitelný zbytek',
         'sheet_seal'       => 'Páska',
+        'sheet_upsized'    => 'zvětšeno z %s kvůli použitelnému zbytku',
         'pcs'              => 'ks',
         'company_id'       => 'IČO',
         'company_vat_id'   => 'DIČ',
@@ -397,6 +401,11 @@ final class PdfReport
         $stats = [
             $this->t('stat_pieces')      => round($totalPieceArea, 4) . ' m²',
             $this->t('stat_waste')       => round($wasteArea, 4)      . ' m²',
+        ];
+        if ($r->netMaterialM2 !== null) {
+            $stats[$this->t('stat_net_material')] = $r->netMaterialM2 . ' m²';
+        }
+        $stats += [
             $this->t('stat_utilization') => $utilRelPct               . ' %',
             $this->t('stat_sheets')      => count($r->sheets)         . ' ' . $pcs,
             $this->t('stat_cuts')        => $r->cutCount . ' / ' . round($r->cutsMm / 1000, 1) . ' m',
@@ -611,6 +620,12 @@ final class PdfReport
         $pieceCnt  = count($sheet->pieces);
         $pcs       = $this->e($this->t('pcs'));
         $dimStr    = $this->fmtNum($sheet->width) . ' × ' . $this->fmtNum($sheet->height) . ' mm';
+        if ($sheet->upsizedFrom !== null) {
+            $dimStr .= ' (' . sprintf(
+                $this->t('sheet_upsized'),
+                $this->fmtNum($sheet->upsizedFrom['width']) . ' × ' . $this->fmtNum($sheet->upsizedFrom['height']) . ' mm'
+            ) . ')';
+        }
 
         $extra = '';
         $remnantCnt = count($sheet->remnants ?? []);

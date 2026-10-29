@@ -84,11 +84,14 @@ final class RenderTest extends TestCase
         self::assertStringContainsString('Larger than every stock format.', $html);
         self::assertStringContainsString('okno &quot;A&quot; &amp; B', $html);       // label column
         self::assertStringContainsString('Usable remnants', $html);
+        self::assertStringContainsString('Net material (less remnants):</td><td class="stat-val">' . $result->netMaterialM2 . ' m²', $html);
+        self::assertStringNotContainsString('enlarged from', $html);
         self::assertSame(count($result->sheets), substr_count($html, '<div class="sheet-block">'));
 
         $czech = (new PdfReport($result, [], PdfReport::LABELS_CS))->html();
         self::assertStringContainsString('Nářezový plán', $czech);
         self::assertStringContainsString('Zaslepení (páska)', $czech);
+        self::assertStringContainsString('Čistá spotřeba (bez zbytků)', $czech);
         self::assertStringContainsString('Kus je větší než všechny dostupné formáty desek.', $czech);
         self::assertStringContainsString('Nejméně materiálu', $czech);
     }
@@ -118,6 +121,41 @@ final class RenderTest extends TestCase
         self::assertStringContainsString('Nejméně materiálu', $html);
     }
 
+    public function testReportsAndArraysCarryTheEnlargedSheet(): void
+    {
+        $job = NestingJob::create(new Material(0, Grain::ALONG_WIDTH), search: Search::singlePass(), remnants: Remnants::atLeast(2500, 1000, upsize: true))
+            ->addStock(6000, 2100, 5)
+            ->addStock(4000, 2100, 5)
+            ->addPiece(3000, 2100);
+        $result = (new SheetNester())->solve($job);
+        self::assertSame(['width' => 4000.0, 'height' => 2100.0], $result->sheets[0]->upsizedFrom);
+
+        $html = (new PdfReport($result))->html();
+        self::assertStringContainsString('6000 × 2100 mm (enlarged from 4000 × 2100 mm for a usable remnant)', $html);
+        self::assertStringContainsString('Net material (less remnants):</td><td class="stat-val">6.3 m²', $html);
+
+        $czech = (new PdfReport($result, [], PdfReport::LABELS_CS))->html();
+        self::assertStringContainsString('zvětšeno z 4000 × 2100 mm kvůli použitelnému zbytku', $czech);
+        self::assertStringContainsString('Čistá spotřeba (bez zbytků):</td><td class="stat-val">6.3 m²', $czech);
+
+        // the SVG preview is unchanged by the enlargement (it draws the final sheet)
+        self::assertStringContainsString('offcut ', (new SvgRenderer())->render($result->sheets[0]));
+
+        $array = $result->toArray();
+        self::assertSame(['width' => 4000.0, 'height' => 2100.0], $array['sheets'][0]['upsized_from']);
+        self::assertSame(6.3, $array['totals']['net_material_m2']);
+        self::assertSame($array, NestingResult::fromArray($array)->toArray());
+        $decoded = NestingResult::fromArray(json_decode(json_encode($array, JSON_THROW_ON_ERROR), true));
+        self::assertSame(['width' => 4000.0, 'height' => 2100.0], $decoded->sheets[0]->upsizedFrom);
+        self::assertSame(6.3, $decoded->netMaterialM2);
+
+        // the 1.x shape knows neither field
+        $legacy = $result->toLegacyArray();
+        self::assertArrayNotHasKey('upsized_from', $legacy['sheets'][0]);
+        self::assertArrayNotHasKey('net_material_m2', $legacy);
+        self::assertNull(NestingResult::fromLegacyArray($legacy)->sheets[0]->upsizedFrom);
+    }
+
     public function testArrayRoundTrips(): void
     {
         $result = self::sampleResult();
@@ -125,6 +163,7 @@ final class RenderTest extends TestCase
         $array = $result->toArray();
         self::assertSame($array, NestingResult::fromArray($array)->toArray());
         self::assertSame($array, NestingResult::fromArray(json_decode(json_encode($array, JSON_THROW_ON_ERROR), true))->toArray());
+        self::assertNull(NestingResult::fromArray($array)->sheets[0]->upsizedFrom);
 
         $legacy = $result->toLegacyArray();
         self::assertSame($legacy, NestingResult::fromLegacyArray($legacy)->toLegacyArray());

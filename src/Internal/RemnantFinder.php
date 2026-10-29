@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Multiplast\SheetNester\Internal;
 
 /**
- * Finds usable remnants (largest empty rectangles or registered remnant
- * formats) in the free space of a nested sheet.
+ * Finds usable remnants in the free space of a nested sheet: the largest
+ * empty rectangles that meet a minimum size (auto / atLeast mode) or
+ * registered remnant formats (defined mode).
  *
  * ADVISORY: marked remnants show the operator / backoffice which leftover
  * rectangles are worth keeping. They do NOT guarantee that the remnant can
@@ -30,21 +31,25 @@ final class RemnantFinder
     public const WORK_BUDGET = 30_000_000;
 
     /**
+     * @param float $minWidth   Minimum remnant width (X) for the auto mode, 0 = none.
+     * @param float $minHeight  Minimum remnant height (Y) for the auto mode, 0 = none.
      * @param array<int, array{float, float}> $remnantFormats Formats for the "defined" mode.
      */
     public function __construct(
         private float $kerf,
         private bool  $allowRotation,
-        private float $minRemnantSide,
+        private float $minWidth,
+        private float $minHeight,
         private array $remnantFormats,
     ) {
     }
 
     /**
-     * AUTO mode: repeatedly finds the largest empty rectangle on the sheet and
-     * marks it as a remnant while its shorter side is at least minRemnantSide.
-     * Occupancy = piece footprints + already marked remnants (both inflated by
-     * kerf to the right/bottom – mirrors the engine's placement convention).
+     * AUTO mode: repeatedly finds the largest empty rectangle that meets the
+     * minimum size (see meetsMinimum()) and marks it as a remnant until none
+     * is left. Occupancy = piece footprints + already marked remnants (both
+     * inflated by kerf to the right/bottom – mirrors the engine's placement
+     * convention).
      *
      * @return FreeRect[]
      */
@@ -61,7 +66,7 @@ final class RemnantFinder
                 $workBudget
             );
 
-            if ($rect === null || min($rect->width, $rect->height) < $this->minRemnantSide) {
+            if ($rect === null) {
                 break;
             }
             $remnants[] = $rect;
@@ -138,10 +143,11 @@ final class RemnantFinder
     }
 
     /**
-     * Area (m²) of the largest single empty rectangle across all sheets.
-     * Cheap single-shot variant for the best_remnant tie-break: one
-     * largestEmptyRect call per sheet, occupied = piece footprints only.
-     * Deterministic; WORK_BUDGET guards pathological sheets.
+     * Area (m²) of the largest single empty rectangle across all sheets, of
+     * any size – the best_remnant tie-break is independent of the Remnants
+     * minimum and formats. Cheap single-shot variant: one largestEmptyRect
+     * call per sheet, occupied = piece footprints only. Deterministic;
+     * WORK_BUDGET guards pathological sheets.
      *
      * @param Sheet[] $sheets
      */
@@ -156,7 +162,8 @@ final class RemnantFinder
                 $occupied,
                 $sheet->format->width,
                 $sheet->format->height,
-                $budget
+                $budget,
+                false
             );
             if ($rect !== null) {
                 $best = max($best, $rect->area() / 1_000_000);
@@ -203,16 +210,20 @@ final class RemnantFinder
 
     /**
      * Finds the largest axis-aligned empty rectangle on a sw × sh sheet given
-     * occupied rectangles. Coordinate compression over occupied edges +
-     * "largest rectangle in histogram" per grid row (widths/heights in mm).
-     * Deterministic tie-break: larger area, then smaller y, then smaller x.
+     * occupied rectangles – with $applyMinimum among those that meet the
+     * minimum size (every maximal empty rectangle is enumerated, so a
+     * qualifying block is never hidden behind a larger non-qualifying strip),
+     * otherwise of any size. Coordinate compression
+     * over occupied edges + "largest rectangle in histogram" per grid row
+     * (widths/heights in mm). Deterministic tie-break: larger area, then
+     * smaller y, then smaller x.
      *
      * Decrements $workBudget by the number of performed grid-cell tests so the
      * caller can enforce the deterministic WORK_BUDGET cap.
      *
      * @param array<int, array{float, float, float, float}> $occupied
      */
-    private function largestEmptyRect(array $occupied, float $sw, float $sh, int &$workBudget): ?FreeRect
+    private function largestEmptyRect(array $occupied, float $sw, float $sh, int &$workBudget, bool $applyMinimum = true): ?FreeRect
     {
         if ($sw <= 0 || $sh <= 0) {
             return null;
@@ -281,7 +292,7 @@ final class RemnantFinder
                     $left   = empty($stack) ? 0 : end($stack) + 1;
                     $width  = $xs[$c] - $xs[$left];
                     $area   = $width * $height;
-                    if ($area > 1e-9) {
+                    if ($area > 1e-9 && (!$applyMinimum || $this->meetsMinimum($width, $height))) {
                         $y = $ys[$r + 1] - $height;
                         $x = $xs[$left];
                         if ($best === null
@@ -301,6 +312,21 @@ final class RemnantFinder
         return $best === null
             ? null
             : new FreeRect($best[2], $best[1], $best[3], $best[4]);
+    }
+
+    /**
+     * Whether a w × h rectangle is at least minWidth × minHeight – in the
+     * job's orientation, or either way round when rotation is allowed (no
+     * channels). Always true without a minimum.
+     */
+    private function meetsMinimum(float $w, float $h): bool
+    {
+        if ($w >= $this->minWidth - 1e-9 && $h >= $this->minHeight - 1e-9) {
+            return true;
+        }
+        return $this->allowRotation
+            && $w >= $this->minHeight - 1e-9
+            && $h >= $this->minWidth - 1e-9;
     }
 
     /**

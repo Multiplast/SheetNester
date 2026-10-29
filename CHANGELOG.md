@@ -1,5 +1,42 @@
 # Changelog
 
+## Unreleased (2.1.0)
+
+### Added
+
+- **`Remnants::…(upsize: true)` – a larger stock sheet for a usable remnant.**
+  After the solver has found the plan with the least material, a sheet may be
+  moved to a larger available format when that turns its waste into a remnant
+  that meets the `Remnants` threshold: candidates are valued by net material
+  (format area − marked remnant area), the sheet moves only on a strict
+  improvement and ties go to the smaller format, so a full sheet never grows.
+  Pieces never move; the result is rebuilt (format, utilisation, cuts, stock
+  usage). Available on `auto()`, `atLeast()` and `defined()`, off by default.
+  Internal: `FormatUpsizer`, the mirror image of `FormatReducer`.
+- `Remnants::atLeast(width, height)`: minimum remnant size in both
+  dimensions, in the job's orientation – orientation-bound with channels,
+  either orientation with `Grain::NONE`. `Remnants::auto(minSide)` is the
+  square case; `Remnants::$minSide` is deprecated in favour of `$minWidth` /
+  `$minHeight`.
+- Result: `SheetPlan::$upsizedFrom` / `sheets[].upsized_from` (the format a
+  sheet had before it was enlarged, else `null`) and
+  `NestingResult::$netMaterialM2` / `totals.net_material_m2` (material less
+  marked remnants, `null` when marking is off). `toLegacyArray()` is
+  unchanged. `PdfReport` shows the net material in the statistics and notes
+  the original format in the header of an enlarged sheet (label keys
+  `stat_net_material`, `sheet_upsized`).
+
+### Fixed
+
+- **Auto remnant marking finds the largest rectangle that meets the
+  minimum.** It used to stop as soon as the largest empty rectangle of a sheet
+  fell below the minimum, so a thin strip (e.g. 6000 × 150) hid a usable block
+  beside it. Placements are unchanged; a job's `remnants` / `remnant_m2` can
+  only grow (the golden fixtures changed in those keys only).
+- Documented that the `Objective::bestRemnant()` tie-break is independent of
+  the `Remnants` option (its rectangle is measured without the minimum or
+  formats) and that no objective trades material for a remnant.
+
 ## 2.0.0 – 2026-10-27
 
 ### New API

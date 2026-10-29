@@ -65,7 +65,10 @@ that place the same number of pieces.
 |---|---|
 | `Objective::minWaste()` (default) | material (m²) |
 | `Objective::minCuts(cutCostM2: 0.05)` | `material_m2 + cutCostM2 × saw passes`; ties → shorter cut length. `cutCostM2` is the material-equivalent value of one saw pass in m². Material changes in whole sheets, so values well below one sheet area rarely change the plan – they then only break ties. |
-| `Objective::bestRemnant()` | material; ties → the plan whose largest single empty rectangle is biggest (one big offcut back to stock). |
+| `Objective::bestRemnant()` | material; ties → the plan whose largest single empty rectangle is biggest (one big offcut back to stock). Independent of the `Remnants` option: the rectangle is measured without its minimum size or formats. |
+
+None of the objectives trades material for a remnant – that is what
+`Remnants::…(upsize: true)` is for (below).
 
 ### `Search(restarts, seed, timeBudgetMs, portfolio)` – how hard to try
 
@@ -78,14 +81,48 @@ pass always runs, further orderings are skipped once the budget is spent and
 the best so far is kept (`$result->timeBudgetHit`). With a `seed` and without
 a time budget the same input always gives the same result.
 
-### `Remnants` – marking usable leftovers
+### `Remnants` – usable leftovers
 
-`Remnants::none()` (default), `Remnants::auto(minSide: 200)` marks the largest
-empty rectangles whose shorter side is at least `minSide` mm,
-`Remnants::defined([[1000, 500], …])` fits the given formats (largest first,
-each repeatedly while it fits). Marking never influences the placement and is
-advisory: a marked remnant is not guaranteed to be separable with one sequence
-of guillotine cuts.
+`Remnants::none()` (default). `Remnants::atLeast(width: 500, height: 1000)`
+marks the largest empty rectangles that are at least `width × height` mm, in
+the job's orientation (width along X): with channels a remnant cannot be
+turned, so the minimum is orientation-bound, with `Grain::NONE` either
+orientation qualifies. `Remnants::auto(minSide: 200)` is the square case
+(shorter side ≥ `minSide`). `Remnants::defined([[1000, 500], …])` fits the
+given formats (largest first, each repeatedly while it fits). Marking is
+advisory: a marked remnant is not guaranteed to be separable with one
+sequence of guillotine cuts.
+
+Marking alone never influences the plan – it only decides which free
+rectangles the result reports (`remnants`, `remnant_m2`, `remnant_pct`,
+`net_material_m2` = material less remnants). The threshold is also the only
+knob of **`upsize: true`** (`Remnants::atLeast(2500, 1000, upsize: true)`,
+also on `auto()` / `defined()`): after the solver has found the plan with the
+least material, a sheet may be moved to a larger stock format when that turns
+its waste into a usable remnant. The pieces keep their positions; only the
+format of the sheet changes, and `SheetPlan::$upsizedFrom` (`upsized_from`)
+records the original one.
+
+For every sheet the candidates are the available formats that still hold its
+pieces; each is valued by its net material, `format area − area of the
+remnants that would be marked on it`. The sheet moves only on a strict
+improvement, ties go to the smaller format, so a full sheet never grows and a
+sheet grows only where its waste becomes part of a remnant that meets the
+threshold. Example – one 3000 × 2100 piece, formats 6000 / 5000 / 4000 × 2100,
+`atLeast(2500, 1000, upsize: true)`:
+
+| Format | Leftover | Meets 2500 × 1000 | Net material |
+|---|---|---|---|
+| 4000 × 2100 | 1000 × 2100 | no | 8.40 m² |
+| 5000 × 2100 | 2000 × 2100 | no | 10.50 m² |
+| 6000 × 2100 | 3000 × 2100 | yes | **6.30 m²** ← chosen |
+
+The step runs on the winning plan only (also with `Search::singlePass()`), it
+never moves pieces between sheets, and with `Objective::minCuts()` the cut
+that separates the new remnant is counted in the result but not in the
+comparison of the candidate plans. Choose the threshold as the smallest
+remnant you would sell or stock as a full sheet: a low threshold makes almost
+every leftover count and the step then changes nothing (every format ties).
 
 ### Job
 

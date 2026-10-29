@@ -14,6 +14,10 @@ namespace Multiplast\SheetNester\Options;
  *                   material for noticeably fewer cuts; ties → shorter cut length.
  *  - bestRemnant(): least material; ties → the plan whose largest single
  *                   empty rectangle is biggest (one big offcut back to stock).
+ *                   Independent of the Remnants option – the rectangle is
+ *                   measured without its minimum size or formats.
+ *
+ * No objective trades material for a remnant; see Remnants::$upsize for that.
  *
  * Immutable by convention – treat the public properties as read-only.
  */

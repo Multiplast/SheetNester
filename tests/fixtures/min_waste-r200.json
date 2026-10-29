@@ -651,8 +651,15 @@
                     }
                 ]
             },
-            "remnants": [],
-            "remnant_area_m2": 0.0
+            "remnants": [
+                {
+                    "x": 0.0,
+                    "y": 1620.0,
+                    "width": 900.0,
+                    "height": 200.0
+                }
+            ],
+            "remnant_area_m2": 0.18
         },
         {
             "sheet_index": 5,
@@ -898,8 +905,15 @@
                     }
                 ]
             },
-            "remnants": [],
-            "remnant_area_m2": 0.0
+            "remnants": [
+                {
+                    "x": 0.0,
+                    "y": 1620.0,
+                    "width": 900.0,
+                    "height": 200.0
+                }
+            ],
+            "remnant_area_m2": 0.18
         },
         {
             "sheet_index": 7,
@@ -1684,7 +1698,7 @@
     "total_seal_mm": 212780.0,
     "permutations_tested": 203,
     "time_budget_hit": false,
-    "total_remnant_m2": 3.2894,
-    "total_remnant_pct": 3.23,
+    "total_remnant_m2": 3.6494,
+    "total_remnant_pct": 3.58,
     "strategy": "min_waste"
 }
