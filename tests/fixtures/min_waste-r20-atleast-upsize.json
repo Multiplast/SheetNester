@@ -2,7 +2,7 @@
     "sheets": [
         {
             "sheet_index": 0,
-            "stock_width": 6000.0,
+            "stock_width": 4500.0,
             "stock_height": 2100.0,
             "pieces": [
                 {
@@ -48,7 +48,7 @@
                     "rotated": false
                 }
             ],
-            "used_area_pct": 68.56,
+            "used_area_pct": 91.41,
             "cuts": {
                 "horizontal_mm": 8360.0,
                 "vertical_mm": 6570.0,
@@ -119,15 +119,8 @@
                     }
                 ]
             },
-            "remnants": [
-                {
-                    "x": 4400.0,
-                    "y": 0.0,
-                    "width": 1600.0,
-                    "height": 2100.0
-                }
-            ],
-            "remnant_area_m2": 3.36
+            "remnants": [],
+            "remnant_area_m2": 0.0
         },
         {
             "sheet_index": 1,
@@ -509,7 +502,7 @@
         },
         {
             "sheet_index": 4,
-            "stock_width": 4000.0,
+            "stock_width": 3000.0,
             "stock_height": 1820.0,
             "pieces": [
                 {
@@ -562,7 +555,7 @@
                     "rotated": false
                 }
             ],
-            "used_area_pct": 63.09,
+            "used_area_pct": 84.12,
             "cuts": {
                 "horizontal_mm": 5670.0,
                 "vertical_mm": 5670.0,
@@ -609,19 +602,12 @@
                     }
                 ]
             },
-            "remnants": [
-                {
-                    "x": 2970.0,
-                    "y": 0.0,
-                    "width": 1030.0,
-                    "height": 1820.0
-                }
-            ],
-            "remnant_area_m2": 1.8746
+            "remnants": [],
+            "remnant_area_m2": 0.0
         },
         {
             "sheet_index": 5,
-            "stock_width": 3500.0,
+            "stock_width": 2500.0,
             "stock_height": 1820.0,
             "pieces": [
                 {
@@ -646,7 +632,7 @@
                     "rotated": false
                 }
             ],
-            "used_area_pct": 65.6,
+            "used_area_pct": 91.84,
             "cuts": {
                 "horizontal_mm": 4670.0,
                 "vertical_mm": 2610.0,
@@ -687,19 +673,12 @@
                     }
                 ]
             },
-            "remnants": [
-                {
-                    "x": 2470.0,
-                    "y": 0.0,
-                    "width": 1030.0,
-                    "height": 1820.0
-                }
-            ],
-            "remnant_area_m2": 1.8746
+            "remnants": [],
+            "remnant_area_m2": 0.0
         },
         {
             "sheet_index": 6,
-            "stock_width": 3500.0,
+            "stock_width": 2500.0,
             "stock_height": 1820.0,
             "pieces": [
                 {
@@ -724,7 +703,7 @@
                     "rotated": false
                 }
             ],
-            "used_area_pct": 65.6,
+            "used_area_pct": 91.84,
             "cuts": {
                 "horizontal_mm": 4670.0,
                 "vertical_mm": 2610.0,
@@ -765,19 +744,12 @@
                     }
                 ]
             },
-            "remnants": [
-                {
-                    "x": 2470.0,
-                    "y": 0.0,
-                    "width": 1030.0,
-                    "height": 1820.0
-                }
-            ],
-            "remnant_area_m2": 1.8746
+            "remnants": [],
+            "remnant_area_m2": 0.0
         },
         {
             "sheet_index": 7,
-            "stock_width": 3500.0,
+            "stock_width": 2500.0,
             "stock_height": 1820.0,
             "pieces": [
                 {
@@ -802,7 +774,7 @@
                     "rotated": false
                 }
             ],
-            "used_area_pct": 65.6,
+            "used_area_pct": 91.84,
             "cuts": {
                 "horizontal_mm": 4670.0,
                 "vertical_mm": 2610.0,
@@ -843,19 +815,12 @@
                     }
                 ]
             },
-            "remnants": [
-                {
-                    "x": 2470.0,
-                    "y": 0.0,
-                    "width": 1030.0,
-                    "height": 1820.0
-                }
-            ],
-            "remnant_area_m2": 1.8746
+            "remnants": [],
+            "remnant_area_m2": 0.0
         },
         {
             "sheet_index": 8,
-            "stock_width": 3500.0,
+            "stock_width": 2500.0,
             "stock_height": 1820.0,
             "pieces": [
                 {
@@ -880,7 +845,7 @@
                     "rotated": false
                 }
             ],
-            "used_area_pct": 65.6,
+            "used_area_pct": 91.84,
             "cuts": {
                 "horizontal_mm": 4670.0,
                 "vertical_mm": 2610.0,
@@ -921,19 +886,12 @@
                     }
                 ]
             },
-            "remnants": [
-                {
-                    "x": 2470.0,
-                    "y": 0.0,
-                    "width": 1030.0,
-                    "height": 1820.0
-                }
-            ],
-            "remnant_area_m2": 1.8746
+            "remnants": [],
+            "remnant_area_m2": 0.0
         },
         {
             "sheet_index": 9,
-            "stock_width": 3500.0,
+            "stock_width": 2500.0,
             "stock_height": 1820.0,
             "pieces": [
                 {
@@ -958,7 +916,7 @@
                     "rotated": false
                 }
             ],
-            "used_area_pct": 65.6,
+            "used_area_pct": 91.84,
             "cuts": {
                 "horizontal_mm": 4670.0,
                 "vertical_mm": 2610.0,
@@ -999,19 +957,12 @@
                     }
                 ]
             },
-            "remnants": [
-                {
-                    "x": 2470.0,
-                    "y": 0.0,
-                    "width": 1030.0,
-                    "height": 1820.0
-                }
-            ],
-            "remnant_area_m2": 1.8746
+            "remnants": [],
+            "remnant_area_m2": 0.0
         },
         {
             "sheet_index": 10,
-            "stock_width": 3500.0,
+            "stock_width": 2500.0,
             "stock_height": 1820.0,
             "pieces": [
                 {
@@ -1036,7 +987,7 @@
                     "rotated": false
                 }
             ],
-            "used_area_pct": 65.6,
+            "used_area_pct": 91.84,
             "cuts": {
                 "horizontal_mm": 4670.0,
                 "vertical_mm": 2610.0,
@@ -1077,19 +1028,12 @@
                     }
                 ]
             },
-            "remnants": [
-                {
-                    "x": 2470.0,
-                    "y": 0.0,
-                    "width": 1030.0,
-                    "height": 1820.0
-                }
-            ],
-            "remnant_area_m2": 1.8746
+            "remnants": [],
+            "remnant_area_m2": 0.0
         },
         {
             "sheet_index": 11,
-            "stock_width": 3500.0,
+            "stock_width": 2500.0,
             "stock_height": 1820.0,
             "pieces": [
                 {
@@ -1114,7 +1058,7 @@
                     "rotated": false
                 }
             ],
-            "used_area_pct": 65.6,
+            "used_area_pct": 91.84,
             "cuts": {
                 "horizontal_mm": 4670.0,
                 "vertical_mm": 2610.0,
@@ -1155,19 +1099,12 @@
                     }
                 ]
             },
-            "remnants": [
-                {
-                    "x": 2470.0,
-                    "y": 0.0,
-                    "width": 1030.0,
-                    "height": 1820.0
-                }
-            ],
-            "remnant_area_m2": 1.8746
+            "remnants": [],
+            "remnant_area_m2": 0.0
         },
         {
             "sheet_index": 12,
-            "stock_width": 3500.0,
+            "stock_width": 2500.0,
             "stock_height": 1820.0,
             "pieces": [
                 {
@@ -1192,7 +1129,7 @@
                     "rotated": false
                 }
             ],
-            "used_area_pct": 65.6,
+            "used_area_pct": 91.84,
             "cuts": {
                 "horizontal_mm": 4670.0,
                 "vertical_mm": 2610.0,
@@ -1233,19 +1170,12 @@
                     }
                 ]
             },
-            "remnants": [
-                {
-                    "x": 2470.0,
-                    "y": 0.0,
-                    "width": 1030.0,
-                    "height": 1820.0
-                }
-            ],
-            "remnant_area_m2": 1.8746
+            "remnants": [],
+            "remnant_area_m2": 0.0
         },
         {
             "sheet_index": 13,
-            "stock_width": 3500.0,
+            "stock_width": 2500.0,
             "stock_height": 1820.0,
             "pieces": [
                 {
@@ -1263,7 +1193,7 @@
                     "rotated": false
                 }
             ],
-            "used_area_pct": 62.17,
+            "used_area_pct": 87.03,
             "cuts": {
                 "horizontal_mm": 4400.0,
                 "vertical_mm": 1800.0,
@@ -1292,19 +1222,12 @@
                     }
                 ]
             },
-            "remnants": [
-                {
-                    "x": 2200.0,
-                    "y": 0.0,
-                    "width": 1300.0,
-                    "height": 1820.0
-                }
-            ],
-            "remnant_area_m2": 2.366
+            "remnants": [],
+            "remnant_area_m2": 0.0
         },
         {
             "sheet_index": 14,
-            "stock_width": 3500.0,
+            "stock_width": 2500.0,
             "stock_height": 1820.0,
             "pieces": [
                 {
@@ -1322,7 +1245,7 @@
                     "rotated": false
                 }
             ],
-            "used_area_pct": 62.17,
+            "used_area_pct": 87.03,
             "cuts": {
                 "horizontal_mm": 4400.0,
                 "vertical_mm": 1800.0,
@@ -1351,19 +1274,12 @@
                     }
                 ]
             },
-            "remnants": [
-                {
-                    "x": 2200.0,
-                    "y": 0.0,
-                    "width": 1300.0,
-                    "height": 1820.0
-                }
-            ],
-            "remnant_area_m2": 2.366
+            "remnants": [],
+            "remnant_area_m2": 0.0
         },
         {
             "sheet_index": 15,
-            "stock_width": 3500.0,
+            "stock_width": 2500.0,
             "stock_height": 1820.0,
             "pieces": [
                 {
@@ -1381,7 +1297,7 @@
                     "rotated": false
                 }
             ],
-            "used_area_pct": 62.17,
+            "used_area_pct": 87.03,
             "cuts": {
                 "horizontal_mm": 4400.0,
                 "vertical_mm": 1800.0,
@@ -1410,15 +1326,8 @@
                     }
                 ]
             },
-            "remnants": [
-                {
-                    "x": 2200.0,
-                    "y": 0.0,
-                    "width": 1300.0,
-                    "height": 1820.0
-                }
-            ],
-            "remnant_area_m2": 2.366
+            "remnants": [],
+            "remnant_area_m2": 0.0
         },
         {
             "sheet_index": 16,
@@ -1657,7 +1566,7 @@
     ],
     "stock_usage": [
         {
-            "width": 6000.0,
+            "width": 4500.0,
             "height": 2100.0,
             "used": 1,
             "remaining": 19
@@ -1669,7 +1578,7 @@
             "remaining": 14
         },
         {
-            "width": 3500.0,
+            "width": 2500.0,
             "height": 1820.0,
             "used": 11,
             "remaining": 9
@@ -1687,7 +1596,7 @@
             "remaining": 17
         },
         {
-            "width": 4000.0,
+            "width": 3000.0,
             "height": 1820.0,
             "used": 1,
             "remaining": 19
@@ -1701,9 +1610,9 @@
     ],
     "unplaced_pieces": [],
     "total_sheets": 24,
-    "total_waste_pct": 22.92,
-    "utilization_pct": 72.47,
-    "total_material_m2": 131.81,
+    "total_waste_pct": 9.23,
+    "utilization_pct": 89.42,
+    "total_material_m2": 106.82,
     "total_cuts_count": 86,
     "total_cuts_mm": 152970.0,
     "total_cuts_horiz_mm": 93390.0,
@@ -1711,7 +1620,7 @@
     "total_seal_mm": 212780.0,
     "permutations_tested": 23,
     "time_budget_hit": false,
-    "total_remnant_m2": 29.3314,
-    "total_remnant_pct": 22.25,
+    "total_remnant_m2": 2.002,
+    "total_remnant_pct": 1.87,
     "strategy": "min_waste"
 }

@@ -9,10 +9,12 @@ namespace Multiplast\SheetNester\Options;
  * marked on the finished plan, and whether the plan may trade a bigger stock
  * sheet for one.
  *
- * Marking alone never influences the placement. With $upsize a sheet may be
- * reassigned to a larger stock format when that turns its waste into a
- * usable remnant (see Internal\FormatUpsizer); the pieces keep their
- * positions, only the format of the sheet changes.
+ * Marking alone never influences the placement. With $upsize the leftover
+ * sheet of the plan (lowest utilisation – in practice the last, partially
+ * filled one) may be reassigned to a larger stock format when that turns its
+ * waste into a usable remnant (see Internal\FormatUpsizer); at most one sheet
+ * changes, the pieces keep their positions, only the format of the sheet
+ * changes.
  *
  * Immutable by convention – treat the public properties as read-only.
  */
@@ -51,8 +53,8 @@ final class Remnants
      * Mark the largest empty rectangles whose shorter side is at least $minSide
      * mm – the same as atLeast($minSide, $minSide).
      *
-     * @param bool $upsize Allow a larger stock format for a sheet when that
-     *                     turns its waste into a usable remnant.
+     * @param bool $upsize Allow a larger stock format for the leftover sheet
+     *                     when that turns its waste into a usable remnant.
      */
     public static function auto(float $minSide = 200.0, bool $upsize = false): self
     {
@@ -68,8 +70,8 @@ final class Remnants
      * a remnant cannot be turned, so the minimum is orientation-bound; with
      * Grain::NONE a rectangle qualifies in either orientation.
      *
-     * @param bool $upsize Allow a larger stock format for a sheet when that
-     *                     turns its waste into a usable remnant.
+     * @param bool $upsize Allow a larger stock format for the leftover sheet
+     *                     when that turns its waste into a usable remnant.
      */
     public static function atLeast(float $width, float $height, bool $upsize = false): self
     {
@@ -84,8 +86,8 @@ final class Remnants
      * it fits) into the free area of every sheet.
      *
      * @param array<int, array{float, float}> $formats  [[width, height], ...] in mm
-     * @param bool $upsize Allow a larger stock format for a sheet when that
-     *                     turns its waste into a usable remnant.
+     * @param bool $upsize Allow a larger stock format for the leftover sheet
+     *                     when that turns its waste into a usable remnant.
      */
     public static function defined(array $formats, bool $upsize = false): self
     {

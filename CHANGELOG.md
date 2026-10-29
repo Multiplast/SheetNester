@@ -5,14 +5,16 @@
 ### Added
 
 - **`Remnants::…(upsize: true)` – a larger stock sheet for a usable remnant.**
-  After the solver has found the plan with the least material, a sheet may be
-  moved to a larger available format when that turns its waste into a remnant
-  that meets the `Remnants` threshold: candidates are valued by net material
-  (format area − marked remnant area), the sheet moves only on a strict
-  improvement and ties go to the smaller format, so a full sheet never grows.
-  Pieces never move; the result is rebuilt (format, utilisation, cuts, stock
-  usage). Available on `auto()`, `atLeast()` and `defined()`, off by default.
-  Internal: `FormatUpsizer`, the mirror image of `FormatReducer`.
+  After the solver has found the plan with the least material, the leftover
+  sheet (lowest utilisation – in practice the last, partially filled one) may
+  be moved to a larger available format when that turns its waste into a
+  remnant that meets the `Remnants` threshold: candidates are valued by net
+  material (format area − marked remnant area), the sheet moves only on a
+  strict improvement and ties go to the smaller format, so a full sheet never
+  grows. At most one sheet per plan changes, pieces never move; the result is
+  rebuilt (format, utilisation, cuts, stock usage). Available on `auto()`,
+  `atLeast()` and `defined()`, off by default. Internal: `FormatUpsizer`, the
+  mirror image of `FormatReducer`.
 - `Remnants::atLeast(width, height)`: minimum remnant size in both
   dimensions, in the job's orientation – orientation-bound with channels,
   either orientation with `Grain::NONE`. `Remnants::auto(minSide)` is the

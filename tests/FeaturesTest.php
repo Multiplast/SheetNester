@@ -347,12 +347,29 @@ final class FeaturesTest extends TestCase
         self::assertNull($result->sheets[0]->upsizedFrom);
         self::assertSame(12.6, $result->netMaterialM2);
 
-        // every sheet where it pays: two 3500 pieces → two 6000 with a 2500 remnant each
+        // at most one sheet grows: two 3500 pieces on two 4000 → only one of them
+        // becomes a 6000 with a 2500 remnant, the other keeps its 500 mm waste
         $result = $solve(Remnants::atLeast(2500, 1000, upsize: true), [[3500, 2100, 2]]);
-        self::assertSame([6000, 6000], $formats($result));
-        self::assertSame([[3500.0, 0.0, 2500.0, 2100.0]], $remnants($result->sheets[1]));
-        self::assertSame([25.2, 10.5, 14.7], [$result->materialM2, $result->remnantM2, $result->netMaterialM2]);
-        self::assertSame([2, 3], [$result->stockUsage[0]->used, $result->stockUsage[0]->remaining]);
+        self::assertSame([6000, 4000], $formats($result));
+        self::assertSame([[3500.0, 0.0, 2500.0, 2100.0]], $remnants($result->sheets[0]));
+        self::assertSame(['width' => 4000.0, 'height' => 2100.0], $result->sheets[0]->upsizedFrom);
+        self::assertSame([], $result->sheets[1]->remnants);
+        self::assertNull($result->sheets[1]->upsizedFrom);
+        self::assertSame([21.0, 5.25, 15.75], [$result->materialM2, $result->remnantM2, $result->netMaterialM2]);
+        $usage = [];
+        foreach ($result->stockUsage as $u) {
+            $usage[(int) $u->width] = [$u->used, $u->remaining];
+        }
+        self::assertSame([4000 => [1, 4], 6000 => [1, 4]], $usage);
+
+        // the leftover sheet is the one with the lowest utilisation: a 3500 and a
+        // 3000 piece each on a 4000 → the 3000 (75 %) grows, the 3500 (87.5 %) stays
+        $result = $solve(Remnants::atLeast(2500, 1000, upsize: true), [[3500, 2100, 1], [3000, 2100, 1]]);
+        self::assertSame([6000, 4000], $formats($result));
+        self::assertSame(3000.0, $result->sheets[0]->pieces[0]->width);
+        self::assertSame([[3000.0, 0.0, 3000.0, 2100.0]], $remnants($result->sheets[0]));
+        self::assertSame(3500.0, $result->sheets[1]->pieces[0]->width);
+        self::assertNull($result->sheets[1]->upsizedFrom);
 
         // registered remnant formats as the threshold
         $result = $solve(Remnants::defined([[2500, 2100]], upsize: true));

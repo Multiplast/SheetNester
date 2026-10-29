@@ -435,10 +435,11 @@ final class InvariantsTest extends TestCase
     }
 
     /**
-     * Remnants::$upsize: an enlarged sheet records a smaller registered format
-     * that still holds all its pieces, and the enlargement has bought a usable
-     * remnant – it is never applied without one. Without upsize no sheet is
-     * enlarged. (Stock limits and geometry are covered by the other checks.)
+     * Remnants::$upsize: at most one sheet is enlarged; it records a smaller
+     * registered format that still holds all its pieces, and the enlargement
+     * has bought a usable remnant – it is never applied without one. Without
+     * upsize no sheet is enlarged. (Stock limits and geometry are covered by
+     * the other checks.)
      *
      * @param array<string, mixed> $spec
      */
@@ -451,11 +452,14 @@ final class InvariantsTest extends TestCase
             $formats["{$w}x{$h}"] = true;
         }
 
+        $enlarged = 0;
         foreach ($result->sheets as $sheet) {
             $from = $sheet->upsizedFrom;
             if ($from === null) {
                 continue;
             }
+            $enlarged++;
+            self::assertSame(1, $enlarged, "{$label}: more than one sheet enlarged");
             $where = "{$label}: sheet {$sheet->index} enlarged from {$from['width']}x{$from['height']}";
             self::assertTrue($option->upsize, "{$where} although upsize is off");
             self::assertArrayHasKey("{$from['width']}x{$from['height']}", $formats, "{$where}: not a registered format");
