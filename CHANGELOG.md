@@ -14,6 +14,10 @@
   over them. Diagrams are numbered as plans, the pieces and remnants tables
   refer to plan numbers (column label key `col_plans`: `Plan` / `Plán`), and
   `[N]` in a diagram is the row of the piece in the pieces table.
+- `Render\PdfReport`: new constructor argument `oneSheetPerPage` (default
+  `false`, output unchanged). When on, every diagram gets its own A4
+  landscape page (the summary stays portrait), about 1.5× larger with
+  proportionally larger labels.
 
 ## 2.0.0 – 2026-10-27
 

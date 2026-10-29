@@ -23,6 +23,11 @@ use Multiplast\SheetNester\Result\SheetPlan;
  * those plan numbers, and [N] in a diagram is the row of the piece in the
  * pieces table (a running piece number would no longer identify one piece).
  *
+ * With oneSheetPerPage: true, every diagram gets its own A4 landscape page
+ * (the summary stays portrait): about 1.5× larger drawings with
+ * proportionally larger labels, at the cost of more pages. Combines well with
+ * groupIdenticalSheets.
+ *
  * mPDF is an optional dependency (composer require mpdf/mpdf); html() works
  * without it and is handy for previews and tests. Framework-agnostic.
  *
@@ -33,7 +38,7 @@ use Multiplast\SheetNester\Result\SheetPlan;
  *       'title'        => 'Cutting plan no. 12345',
  *       'material'     => 'PC 10 mm clear',
  *       'company_name' => 'ACME Ltd.',
- *   ], PdfReport::LABELS_CS, groupIdenticalSheets: true);
+ *   ], PdfReport::LABELS_CS, groupIdenticalSheets: true, oneSheetPerPage: true);
  *   $pdf->download('cutting-plan.pdf');
  */
 final class PdfReport
@@ -138,6 +143,12 @@ final class PdfReport
     /** Maximum diagram height per sheet block (2 blocks per page, headers included). */
     private const DIAGRAM_MAX_H = 90.0;
 
+    /** oneSheetPerPage: diagram width on A4 landscape (297 mm, 15 mm side margins). */
+    private const DIAGRAM_LANDSCAPE_W = 267.0;
+
+    /** oneSheetPerPage: height left for the diagram under the sheet header (210 mm page). */
+    private const DIAGRAM_LANDSCAPE_H = 150.0;
+
     private const COL_WASTE        = '#c8c8c8';  // grey fill for unused sheet area
     private const COL_PIECE_FILL   = '#ffffff';  // piece rectangle fill
     private const COL_PIECE_STROKE = '#444444';  // piece border
@@ -155,6 +166,16 @@ final class PdfReport
 
     private bool $groupIdenticalSheets;
 
+    private bool $oneSheetPerPage;
+
+    /** Diagram box (mm) for the chosen layout. */
+    private float $diagramMaxW;
+
+    private float $diagramMaxH;
+
+    /** Label size relative to the two-per-page layout. */
+    private float $fontFactor;
+
     /**
      * @param array<string, string> $meta    Report metadata (all keys optional):
      *                                       title, subtitle, material, company_name,
@@ -163,15 +184,22 @@ final class PdfReport
      * @param array<string, string> $labels  Text overrides, see LABELS_EN for the keys.
      * @param bool                  $groupIdenticalSheets  One diagram per distinct sheet layout
      *                                       instead of one per sheet (see the class doc).
+     * @param bool                  $oneSheetPerPage  Each diagram on its own A4 landscape page
+     *                                       instead of two per portrait page.
      */
     public function __construct(
         NestingResult $result,
         array $meta = [],
         array $labels = [],
-        bool $groupIdenticalSheets = false
+        bool $groupIdenticalSheets = false,
+        bool $oneSheetPerPage = false
     ) {
         $this->result = $result;
         $this->groupIdenticalSheets = $groupIdenticalSheets;
+        $this->oneSheetPerPage = $oneSheetPerPage;
+        $this->diagramMaxW = $oneSheetPerPage ? self::DIAGRAM_LANDSCAPE_W : self::DIAGRAM_MAX_W;
+        $this->diagramMaxH = $oneSheetPerPage ? self::DIAGRAM_LANDSCAPE_H : self::DIAGRAM_MAX_H;
+        $this->fontFactor  = $this->diagramMaxW / self::DIAGRAM_MAX_W;
         $this->labels = $labels + self::LABELS_EN;
         $this->meta   = array_merge([
             'title'          => $this->labels['title'],
@@ -213,6 +241,8 @@ final class PdfReport
         // Sheet diagrams flow directly after the summary – no forced page break.
         // Each block is unbreakable (page-break-inside: avoid on .sheet-block),
         // so mPDF moves whole blocks to the next page when they don't fit.
+        // With oneSheetPerPage every block starts its own landscape page
+        // (an mPDF <pagebreak>; browsers ignore the tag in html() previews).
         // $offset = running index of the drawn pieces: the diagram [N] number
         // (runs through the whole plan) and the unique clip-path ids. With
         // grouping [N] is the piece's row in the pieces table instead.
@@ -225,8 +255,13 @@ final class PdfReport
                     ? $pieceRow[$this->pieceKey($p)] + 1
                     : $offset + $i;
             }
+            if ($this->oneSheetPerPage) {
+                $html .= '<pagebreak orientation="landscape" />';
+            }
             $html .= $this->buildSheetBlock($sheet, $plan['number'], count($plan['keys']), $offset, $numbers);
-            $html .= '<div class="sheet-sep"></div>';
+            if (!$this->oneSheetPerPage) {
+                $html .= '<div class="sheet-sep"></div>';
+            }
             $offset += count($sheet->pieces);
         }
 
@@ -619,9 +654,19 @@ final class PdfReport
      */
     private function buildSheetBlock(SheetPlan $sheet, int $number, int $count, int $pieceOffset, array $pieceNumbers): string
     {
+        $wrap = '<div class="diagram-wrap">';
+        if ($this->oneSheetPerPage) {
+            // Centre the drawing vertically in the space under the header.
+            [, $dh, $scale] = $this->diagramGeometry($sheet);
+            $wrap = sprintf(
+                '<div class="diagram-wrap" style="padding-top:%.1fmm">',
+                max(0.0, ($this->diagramMaxH - $dh * $scale) / 2)
+            );
+        }
+
         return '<div class="sheet-block">'
              . $this->buildSheetHeader($sheet, $number, $count)
-             . '<div class="diagram-wrap">'
+             . $wrap
              . $this->buildSheetSvg($sheet, $pieceOffset, $pieceNumbers)
              . '</div>'
              . '</div>';
@@ -692,22 +737,7 @@ final class PdfReport
      */
     private function buildSheetSvg(SheetPlan $sheet, int $pieceOffset, array $pieceNumbers): string
     {
-        $sw = $sheet->width;
-        $sh = $sheet->height;
-
-        // Always display the longer dimension horizontally so the diagram
-        // makes the best use of the page width.
-        // When height > width, rotate the display 90°:
-        //   display X axis ← stock Y axis (height)
-        //   display Y axis ← stock X axis (width)
-        $rotate = ($sh > $sw);
-
-        // dw = horizontal span, dh = vertical span in the SVG canvas
-        $dw = $rotate ? $sh : $sw;
-        $dh = $rotate ? $sw : $sh;
-
-        // Scale so the diagram fits within DIAGRAM_MAX_W × DIAGRAM_MAX_H (mm)
-        $scale = min(self::DIAGRAM_MAX_W / $dw, self::DIAGRAM_MAX_H / $dh);
+        [$dw, $dh, $scale, $rotate] = $this->diagramGeometry($sheet);
 
         // SVG canvas dimensions in mm
         $vw = round($dw * $scale, 3);
@@ -716,8 +746,8 @@ final class PdfReport
         // Base font sizes in mm (used for pieces ≥ 500 mm on shortest displayed side).
         // For smaller pieces the font is scaled down proportionally so labels
         // never overflow or overlap inside the piece rectangle.
-        $baseDimFont = 4.0;
-        $baseIdxFont = 3.64;
+        $baseDimFont = 4.0 * $this->fontFactor;
+        $baseIdxFont = 3.64 * $this->fontFactor;
 
         $svg = sprintf(
             '<svg xmlns="http://www.w3.org/2000/svg" '
@@ -927,6 +957,26 @@ final class PdfReport
 
         $svg .= '</svg>';
         return $svg;
+    }
+
+    /**
+     * Drawing geometry of a sheet. The longer dimension is always displayed
+     * horizontally so the diagram makes the best use of the page width; when
+     * height > width the display is rotated 90°:
+     *   display X axis ← stock Y axis (height)
+     *   display Y axis ← stock X axis (width)
+     *
+     * @return array{0: float, 1: float, 2: float, 3: bool}
+     *         [horizontal span, vertical span (sheet mm), scale to fit the
+     *         diagram box (SVG mm per sheet mm), rotated]
+     */
+    private function diagramGeometry(SheetPlan $sheet): array
+    {
+        $rotate = $sheet->height > $sheet->width;
+        $dw     = $rotate ? $sheet->height : $sheet->width;
+        $dh     = $rotate ? $sheet->width : $sheet->height;
+
+        return [$dw, $dh, min($this->diagramMaxW / $dw, $this->diagramMaxH / $dh), $rotate];
     }
 
     // -------------------------------------------------------------------------

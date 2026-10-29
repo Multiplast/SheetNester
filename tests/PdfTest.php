@@ -62,6 +62,15 @@ final class PdfTest extends TestCase
         self::assertStringStartsWith('%PDF-', $binary);
     }
 
+    public function testOneSheetPerPagePrintsEachDiagramOnALandscapePage(): void
+    {
+        $result = self::sampleResult();
+        $binary = (new PdfReport($result, [], [], oneSheetPerPage: true))->generate();
+
+        // Summary stays portrait; one A4 landscape page (842 × 595 pt) per sheet.
+        self::assertSame(count($result->sheets), substr_count($binary, '/MediaBox [0 0 841.890 595.280]'));
+    }
+
     private static function sampleResult(): NestingResult
     {
         $job = NestingJob::create(

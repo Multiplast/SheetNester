@@ -145,6 +145,25 @@ final class RenderTest extends TestCase
 
         $czech = (new PdfReport($result, [], PdfReport::LABELS_CS, groupIdenticalSheets: true))->html();
         self::assertStringContainsString('<th>Plán</th>', $czech);
+
+        $pages = (new PdfReport($result, [], [], groupIdenticalSheets: true, oneSheetPerPage: true))->html();
+        self::assertSame(2, substr_count($pages, '<pagebreak orientation="landscape" />'));   // one page per plan
+    }
+
+    public function testPdfCanPutEachDiagramOnALandscapePage(): void
+    {
+        $result = self::sampleResult();
+        $sheets = count($result->sheets);
+
+        $default = (new PdfReport($result))->html();
+        self::assertStringNotContainsString('<pagebreak', $default);
+        self::assertStringContainsString('width="175mm"', $default);            // 6000 × 2100, portrait width
+
+        $html = (new PdfReport($result, [], [], oneSheetPerPage: true))->html();
+        self::assertSame($sheets, substr_count($html, '<pagebreak orientation="landscape" />'));
+        self::assertSame($sheets, substr_count($html, '<div class="sheet-block">'));
+        self::assertStringNotContainsString('class="sheet-sep"', $html);
+        self::assertStringContainsString('width="267mm"', $html);               // landscape width
     }
 
     public function testArrayRoundTrips(): void

@@ -137,6 +137,11 @@ as plans, the pieces and remnants tables refer to those plan numbers, and
 $pdf = new PdfReport($result, $meta, PdfReport::LABELS_CS, groupIdenticalSheets: true);
 ```
 
+By default two diagrams share a portrait A4 page. With `oneSheetPerPage: true`
+every diagram gets its own A4 landscape page and the summary stays portrait.
+Drawings and labels are about 1.5× larger, at the cost of roughly twice the
+pages, so it pairs well with `groupIdenticalSheets`.
+
 ## Tests
 
 ```sh
