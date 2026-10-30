@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- `Render\PdfReport`: the pieces table keeps every row on one line (no
+  wrapping; mPDF shrinks the table to the page width when a label is very
+  long), with slightly narrower cell padding.
+- `Render\PdfReport`: sheet and plan numbers in the pieces and remnants
+  tables collapse runs of three or more into a range (`1–5, 23` instead of
+  `1, 2, 3, 4, 5, 23`).
+- `Render\PdfReport`: the net material row is labelled `Spotřeba (bez
+  zbytků)` / `Consumption (less remnants)` (label key `stat_net_material`).
+
 ## 2.1.0 – 2026-10-29
 
 ### Added

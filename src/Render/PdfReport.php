@@ -49,7 +49,7 @@ final class PdfReport
         'stat_pieces'      => 'Placed pieces',
         'stat_waste'       => 'Waste',
         'stat_material'    => 'Material consumption',
-        'stat_net_material' => 'Net material (less remnants)',
+        'stat_net_material' => 'Consumption (less remnants)',
         'stat_utilization' => 'Material utilization',
         'stat_sheets'      => 'Sheets',
         'stat_objective'   => 'Objective',
@@ -96,7 +96,7 @@ final class PdfReport
         'stat_pieces'      => 'Uložené dílce',
         'stat_waste'       => 'Odpad',
         'stat_material'    => 'Spotřeba materiálu',
-        'stat_net_material' => 'Čistá spotřeba (bez zbytků)',
+        'stat_net_material' => 'Spotřeba (bez zbytků)',
         'stat_utilization' => 'Využití materiálu',
         'stat_sheets'      => 'Celkem desek',
         'stat_objective'   => 'Cíl optimalizace',
@@ -376,6 +376,8 @@ final class PdfReport
                 padding: 1.2mm 2mm; border: 0.25mm solid #ddd;
             }
             table.plan-tbl tr.even td { background: #f8f8f8; }
+            /* Pieces table: one line per row – mPDF shrinks the table to fit instead */
+            table.pieces-tbl th, table.pieces-tbl td { white-space: nowrap; padding-left: 1.5mm; padding-right: 1.5mm; }
             .warn  { color: #cc0000; font-weight: bold; }
 
             /* ---- Sheet header block ---- */
@@ -541,7 +543,7 @@ final class PdfReport
         $sheetCol = $this->e($this->t($this->groupIdenticalSheets ? 'col_plans' : 'col_sheets'));
 
         $html .= '<div class="section-head">' . $this->e($this->t('pieces_heading')) . '</div>';
-        $html .= '<table class="plan-tbl"><tr><th>#</th>'
+        $html .= '<table class="plan-tbl pieces-tbl"><tr><th>#</th>'
                . ($hasLabels ? '<th>' . $this->e($this->t('col_label')) . '</th>' : '')
                . '<th>' . $this->e($this->t('col_width')) . '</th>'
                . '<th>' . $this->e($this->t('col_height')) . '</th>'
@@ -562,7 +564,7 @@ final class PdfReport
                    . '<td>' . round($group['area'], 4)         . ' m²</td>'
                    . '<td>' . $group['qty'] . ' ' . $pcs       . '</td>'
                    . '<td>' . ($group['rotated'] ? '↺ ' . $this->e($this->t('yes')) : '—') . '</td>'
-                   . '<td>' . implode(', ', $group['sheets'])  . '</td>'
+                   . '<td>' . $this->fmtNumberList($group['sheets']) . '</td>'
                    . '</tr>';
             $rowIdx++;
         }
@@ -611,7 +613,7 @@ final class PdfReport
                        . '<td>' . $this->fmtNum($group['height'])   . ' mm</td>'
                        . '<td>' . round($group['area'], 4)          . ' m²</td>'
                        . '<td>' . $group['qty'] . ' ' . $pcs        . '</td>'
-                       . '<td>' . implode(', ', $group['sheets'])   . '</td>'
+                       . '<td>' . $this->fmtNumberList($group['sheets']) . '</td>'
                        . '</tr>';
                 $rowIdx++;
             }
@@ -1108,6 +1110,35 @@ final class PdfReport
     private function fmtNum(float $v): string
     {
         return $v == (int) $v ? (string) (int) $v : (string) $v;
+    }
+
+    /**
+     * Sheet / plan numbers for the tables, runs of three or more collapsed to
+     * a range: [1, 2, 3, 4, 5, 23] → "1–5, 23", [1, 2] → "1, 2".
+     *
+     * @param int[] $numbers
+     */
+    private function fmtNumberList(array $numbers): string
+    {
+        $numbers = array_values(array_unique($numbers));
+        sort($numbers);
+
+        $parts = [];
+        $count = count($numbers);
+        for ($i = 0; $i < $count; $i = $j + 1) {
+            $j = $i;
+            while ($j + 1 < $count && $numbers[$j + 1] === $numbers[$j] + 1) {
+                $j++;
+            }
+            if ($j - $i >= 2) {
+                $parts[] = $numbers[$i] . '–' . $numbers[$j];
+            } else {
+                for ($k = $i; $k <= $j; $k++) {
+                    $parts[] = (string) $numbers[$k];
+                }
+            }
+        }
+        return implode(', ', $parts);
     }
 
     /**

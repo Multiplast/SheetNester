@@ -85,7 +85,7 @@ final class RenderTest extends TestCase
         self::assertStringContainsString('Larger than every stock format.', $html);
         self::assertStringContainsString('okno &quot;A&quot; &amp; B', $html);       // label column
         self::assertStringContainsString('Usable remnants', $html);
-        self::assertStringContainsString('Net material (less remnants):</td><td class="stat-val">' . $result->netMaterialM2 . ' m²', $html);
+        self::assertStringContainsString('Consumption (less remnants):</td><td class="stat-val">' . $result->netMaterialM2 . ' m²', $html);
         self::assertStringNotContainsString('enlarged from', $html);
         self::assertSame(count($result->sheets), substr_count($html, '<div class="sheet-block">'));
 
@@ -93,7 +93,7 @@ final class RenderTest extends TestCase
         self::assertStringContainsString('Nářezový plán', $czech);
         self::assertStringContainsString('Zaslepení (páska)', $czech);
         self::assertStringContainsString('Spotřeba materiálu', $czech);
-        self::assertStringContainsString('Čistá spotřeba (bez zbytků)', $czech);
+        self::assertStringContainsString('Spotřeba (bez zbytků)', $czech);
         self::assertStringContainsString('Kus je větší než všechny dostupné formáty desek.', $czech);
         self::assertStringContainsString('Nejméně materiálu', $czech);
     }
@@ -134,11 +134,11 @@ final class RenderTest extends TestCase
 
         $html = (new PdfReport($result))->html();
         self::assertStringContainsString('6000 × 2100 mm (enlarged from 4000 × 2100 mm for a usable remnant)', $html);
-        self::assertStringContainsString('Net material (less remnants):</td><td class="stat-val">6.3 m²', $html);
+        self::assertStringContainsString('Consumption (less remnants):</td><td class="stat-val">6.3 m²', $html);
 
         $czech = (new PdfReport($result, [], PdfReport::LABELS_CS))->html();
         self::assertStringContainsString('zvětšeno z 4000 × 2100 mm kvůli použitelnému zbytku', $czech);
-        self::assertStringContainsString('Čistá spotřeba (bez zbytků):</td><td class="stat-val">6.3 m²', $czech);
+        self::assertStringContainsString('Spotřeba (bez zbytků):</td><td class="stat-val">6.3 m²', $czech);
 
         // the SVG preview is unchanged by the enlargement (it draws the final sheet)
         self::assertStringContainsString('offcut ', (new SvgRenderer())->render($result->sheets[0]));
@@ -186,6 +186,22 @@ final class RenderTest extends TestCase
 
         $pages = (new PdfReport($result, [], [], groupIdenticalSheets: true, oneSheetPerPage: true))->html();
         self::assertSame(2, substr_count($pages, '<pagebreak orientation="landscape" />'));   // one page per plan
+    }
+
+    public function testPiecesTableKeepsEveryRowOnOneLine(): void
+    {
+        // 5 sheets of one piece each + a piece on sheets 1, 2 and 4 → ranges and pairs
+        $job = NestingJob::create(new Material(kerf: 0), search: Search::singlePass())
+            ->addStock(1000, 1000)
+            ->addPiece(1000, 1000, 5, 'Full')
+            ->addPiece(1000, 1000, 1, 'Last');
+        $html = (new PdfReport((new SheetNester())->solve($job)))->html();
+
+        self::assertStringContainsString('<table class="plan-tbl pieces-tbl">', $html);
+        self::assertStringContainsString('table.pieces-tbl th, table.pieces-tbl td { white-space: nowrap;', $html);
+        self::assertStringContainsString('<td>1–5</td>', $html);                // runs of 3+ become a range
+        self::assertStringContainsString('<td>6</td>', $html);
+        self::assertStringNotContainsString('1, 2, 3', $html);
     }
 
     public function testPdfCanPutEachDiagramOnALandscapePage(): void
