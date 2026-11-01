@@ -9,6 +9,7 @@ use Multiplast\SheetNester\NestingJob;
 use Multiplast\SheetNester\Options\Material;
 use Multiplast\SheetNester\Options\Remnants;
 use Multiplast\SheetNester\Options\Search;
+use Multiplast\SheetNester\Options\Upsize;
 use Multiplast\SheetNester\Render\PdfReport;
 use Multiplast\SheetNester\Render\SvgRenderer;
 use Multiplast\SheetNester\Result\NestingResult;
@@ -125,11 +126,27 @@ final class RenderTest extends TestCase
 
     public function testReportsAndArraysCarryTheEnlargedSheet(): void
     {
-        $job = NestingJob::create(new Material(0, Grain::ALONG_WIDTH), search: Search::singlePass(), remnants: Remnants::atLeast(2500, 1000, upsize: Remnants::UPSIZE_LAST))
-            ->addStock(6000, 2100, 5)
-            ->addStock(4000, 2100, 5)
-            ->addPiece(3000, 2100);
-        $result = (new SheetNester())->solve($job);
+        $solve = static function (Remnants $remnants): NestingResult {
+            $job = NestingJob::create(
+                new Material(0, Grain::ALONG_WIDTH),
+                search:   Search::singlePass(),
+                remnants: $remnants,
+                upsize:   Upsize::lastSheet(2500, 1000),
+            )
+                ->addStock(6000, 2100, 5)
+                ->addStock(4000, 2100, 5)
+                ->addPiece(3000, 2100);
+            return (new SheetNester())->solve($job);
+        };
+
+        // without marking the enlargement is still noted, but no remnant or net row is printed
+        $unmarked = $solve(Remnants::none());
+        $html     = (new PdfReport($unmarked, [], PdfReport::LABELS_CS))->html();
+        self::assertStringContainsString('zvětšeno z 4000 × 2100 mm kvůli použitelnému zbytku', $html);
+        self::assertStringNotContainsString('Spotřeba (bez zbytků)', $html);
+        self::assertStringNotContainsString('Použitelné zbytky', $html);
+
+        $result = $solve(Remnants::atLeast(2500, 1000));
         self::assertSame(['width' => 4000.0, 'height' => 2100.0], $result->sheets[0]->upsizedFrom);
 
         $html = (new PdfReport($result))->html();

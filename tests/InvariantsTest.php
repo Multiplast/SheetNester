@@ -10,6 +10,7 @@ use Multiplast\SheetNester\Options\Material;
 use Multiplast\SheetNester\Options\Objective;
 use Multiplast\SheetNester\Options\Remnants;
 use Multiplast\SheetNester\Options\Search;
+use Multiplast\SheetNester\Options\Upsize;
 use Multiplast\SheetNester\Result\Cut;
 use Multiplast\SheetNester\Result\NestingResult;
 use Multiplast\SheetNester\Result\UnplacedPieces;
@@ -43,7 +44,7 @@ final class InvariantsTest extends TestCase
                 $result = (new SheetNester())->solve(self::job($spec, $objective, new Search(restarts: 5, seed: $seed)));
 
                 $this->assertAll($result, $spec, $objective->name, $label);
-                $this->assertNotWorseThanSinglePass($result, $baseline, $objective, $spec['remnants']->upsizes(), $label);
+                $this->assertNotWorseThanSinglePass($result, $baseline, $objective, $spec['upsize']->enabled(), $label);
             }
         }
     }
@@ -82,19 +83,24 @@ final class InvariantsTest extends TestCase
                 Remnants::auto(200.0),
                 Remnants::atLeast(600.0, 300.0),
                 Remnants::defined($remnantFormats),
-                Remnants::atLeast(600.0, 300.0, upsize: Remnants::UPSIZE_LAST),
-                Remnants::defined($remnantFormats, upsize: Remnants::UPSIZE_LAST),
-                Remnants::atLeast(600.0, 300.0, upsize: Remnants::UPSIZE_ALL),
-                Remnants::defined($remnantFormats, upsize: Remnants::UPSIZE_ALL),
-            ][mt_rand(0, 7)],
+            ][mt_rand(0, 3)],
             'remnantFormats' => $remnantFormats,
+            // independent of the marking above
+            'upsize'         => [
+                Upsize::none(),
+                Upsize::none(),
+                Upsize::lastSheet(600.0, 300.0),
+                Upsize::allSheets(600.0, 300.0),
+                Upsize::lastSheet(formats: $remnantFormats),
+                Upsize::allSheets(formats: $remnantFormats),
+            ][mt_rand(0, 5)],
         ];
     }
 
     /** @param array<string, mixed> $spec */
     private static function job(array $spec, Objective $objective, Search $search): NestingJob
     {
-        $job = NestingJob::create(new Material($spec['kerf'], $spec['grain']), $objective, $search, $spec['remnants']);
+        $job = NestingJob::create(new Material($spec['kerf'], $spec['grain']), $objective, $search, $spec['remnants'], $spec['upsize']);
         foreach ($spec['formats'] as [$w, $h, $stock]) {
             $job->addStock($w, $h, $stock);
         }
@@ -437,18 +443,19 @@ final class InvariantsTest extends TestCase
     }
 
     /**
-     * Remnants::$upsize: an enlarged sheet records a smaller registered format
-     * that still holds all its pieces, and the enlargement has bought a usable
-     * remnant – it is never applied without one. UPSIZE_LAST enlarges at most
-     * one sheet; without upsize no sheet is enlarged. (Stock limits and
-     * geometry are covered by the other checks.)
+     * Options\Upsize: an enlarged sheet records a smaller registered format
+     * that still holds all its pieces; lastSheet() enlarges at most one sheet,
+     * none() none. Whether the enlargement bought a remnant that meets the
+     * upsize threshold is pinned by FeaturesTest – the marked remnants follow
+     * an independent threshold. (Stock limits and geometry are covered by the
+     * other checks.)
      *
      * @param array<string, mixed> $spec
      */
     private function assertUpsize(NestingResult $result, array $spec, string $label): void
     {
-        /** @var Remnants $option */
-        $option  = $spec['remnants'];
+        /** @var Upsize $option */
+        $option  = $spec['upsize'];
         $formats = [];
         foreach ($spec['formats'] as [$w, $h]) {
             $formats["{$w}x{$h}"] = true;
@@ -462,9 +469,9 @@ final class InvariantsTest extends TestCase
             }
             $enlarged++;
             $where = "{$label}: sheet {$sheet->index} enlarged from {$from['width']}x{$from['height']}";
-            self::assertTrue($option->upsizes(), "{$where} although upsize is off");
-            if ($option->upsize === Remnants::UPSIZE_LAST) {
-                self::assertSame(1, $enlarged, "{$label}: more than one sheet enlarged with UPSIZE_LAST");
+            self::assertTrue($option->enabled(), "{$where} although upsize is off");
+            if ($option->scope === Upsize::LAST_SHEET) {
+                self::assertSame(1, $enlarged, "{$label}: more than one sheet enlarged with lastSheet()");
             }
             self::assertArrayHasKey("{$from['width']}x{$from['height']}", $formats, "{$where}: not a registered format");
             self::assertLessThan($sheet->width * $sheet->height, $from['width'] * $from['height'], "{$where}: not larger");
@@ -472,7 +479,6 @@ final class InvariantsTest extends TestCase
                 self::assertLessThanOrEqual($from['width'] + self::EPS, $p->x + $p->width, "{$where}: piece did not fit the original format");
                 self::assertLessThanOrEqual($from['height'] + self::EPS, $p->y + $p->height, "{$where}: piece did not fit the original format");
             }
-            self::assertGreaterThan(0.0, $sheet->remnantM2, "{$where}: no usable remnant gained");
         }
     }
 

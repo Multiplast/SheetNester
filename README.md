@@ -8,13 +8,14 @@ dependencies; SVG previews and an optional PDF cutting plan (mPDF).
 
 ```php
 use Multiplast\SheetNester\{Grain, NestingJob, SheetNester};
-use Multiplast\SheetNester\Options\{Material, Objective, Remnants, Search};
+use Multiplast\SheetNester\Options\{Material, Objective, Remnants, Search, Upsize};
 
 $job = NestingJob::create(
         material:  new Material(kerf: 4, grain: Grain::ALONG_HEIGHT),
         objective: Objective::minWaste(),
         search:    new Search(restarts: 50, seed: 42, timeBudgetMs: 8000),
-        remnants:  Remnants::auto(minSide: 200),
+        remnants:  Remnants::auto(minSide: 200),                         // mark leftovers (report only)
+        upsize:    Upsize::lastSheet(minWidth: 2100, minHeight: 2500),   // optional: larger last sheet for a remnant
     )
     ->addStock(2100, 6000, quantity: 10)          // width, height [mm], sheets in stock
     ->addPiece(500, 1000, quantity: 3, label: 'A');
@@ -68,7 +69,7 @@ that place the same number of pieces.
 | `Objective::bestRemnant()` | material; ties → the plan whose largest single empty rectangle is biggest (one big offcut back to stock). Independent of the `Remnants` option: the rectangle is measured without its minimum size or formats. |
 
 None of the objectives trades material for a remnant – that is what
-`Remnants::…(upsize: Remnants::UPSIZE_LAST)` is for (below).
+`Upsize` is for (below).
 
 ### `Search(restarts, seed, timeBudgetMs, portfolio)` – how hard to try
 
@@ -81,7 +82,11 @@ pass always runs, further orderings are skipped once the budget is spent and
 the best so far is kept (`$result->timeBudgetHit`). With a `seed` and without
 a time budget the same input always gives the same result.
 
-### `Remnants` – usable leftovers
+Two separate options deal with remnants, and they combine freely:
+`Remnants` only marks leftovers on the finished plan, `Upsize` may change the
+consumption to create one.
+
+### `Remnants` – marking usable leftovers (report only)
 
 `Remnants::none()` (default). `Remnants::atLeast(width: 500, height: 1000)`
 marks the largest empty rectangles that are at least `width × height` mm, in
@@ -93,28 +98,39 @@ given formats (largest first, each repeatedly while it fits). Marking is
 advisory: a marked remnant is not guaranteed to be separable with one
 sequence of guillotine cuts.
 
-Marking alone never influences the plan – it only decides which free
-rectangles the result reports (`remnants`, `remnant_m2`, `remnant_pct`,
-`net_material_m2` = material less remnants). The threshold is also the only
-knob of **`upsize`** (`Remnants::atLeast(2500, 1000, upsize:
-Remnants::UPSIZE_LAST)`, also on `auto()` / `defined()`, default
-`UPSIZE_NONE`): after the solver has found the plan with the least material, a
-sheet may be moved to a larger stock format when that turns its waste into a
-usable remnant. `UPSIZE_LAST` considers only the leftover sheet – the one with
-the lowest utilisation, in practice the last, partially filled sheet – so at
-most one sheet per plan changes. `UPSIZE_ALL` considers every sheet; with many
-stock formats that also enlarges sheets for a few millimetres of waste, so
-start with `UPSIZE_LAST`. The pieces keep their positions; only the format of
-a sheet changes, and `SheetPlan::$upsizedFrom` (`upsized_from`) records the
-original one.
+Marking never influences the plan – it only decides which free rectangles
+the result reports (`remnants`, `remnant_m2`, `remnant_pct`, `net_material_m2`
+= material less marked remnants) and the renderers draw.
+
+### `Upsize` – a larger sheet for a usable remnant (changes consumption)
+
+`Upsize::none()` (default), `Upsize::lastSheet(…)`, `Upsize::allSheets(…)`.
+After the solver has found the plan with the least material, a sheet may be
+moved to a larger stock format when that turns its waste into a usable
+remnant. `lastSheet()` considers only the last sheet of the plan – the sheet
+opened last, which holds the leftover pieces (with a single sheet, that one).
+`allSheets()` considers every sheet; with many stock formats that also
+enlarges sheets for a few millimetres of waste, so start with `lastSheet()`.
+The pieces keep their positions; only the format of a sheet changes, and
+`SheetPlan::$upsizedFrom` (`upsized_from`) records the original one.
+
+The threshold – what counts as a usable remnant – belongs to this option and
+is independent of `Remnants`: a minimum size (`minWidth`, `minHeight`, same
+orientation rules as `Remnants::atLeast()`) or a list of `formats` one of which
+must fit:
+
+```php
+Upsize::lastSheet(minWidth: 2500, minHeight: 1000)
+Upsize::lastSheet(formats: [[2500, 2100], [3000, 2100]])
+```
 
 The candidates are the available formats that still hold the sheet's pieces;
 each is valued by its net material, `format area − area of the remnants that
-would be marked on it`. The sheet moves only on a strict improvement, ties go
-to the smaller format, so a full sheet never grows and the sheet grows only
-when its waste becomes part of a remnant that meets the threshold. Example –
-one 3000 × 2100 piece, formats 6000 / 5000 / 4000 × 2100,
-`atLeast(2500, 1000, upsize: Remnants::UPSIZE_LAST)`:
+meet the threshold`. The sheet moves only on a strict improvement, ties go to
+the smaller format, so a full sheet never grows and a sheet grows only when
+its waste becomes part of a remnant that meets the threshold. Example – one
+3000 × 2100 piece, formats 6000 / 5000 / 4000 × 2100,
+`Upsize::lastSheet(minWidth: 2500, minHeight: 1000)`:
 
 | Format | Leftover | Meets 2500 × 1000 | Net material |
 |---|---|---|---|
@@ -123,18 +139,31 @@ one 3000 × 2100 piece, formats 6000 / 5000 / 4000 × 2100,
 | 6000 × 2100 | 3000 × 2100 | yes | **6.30 m²** ← chosen |
 
 The step runs on the winning plan only (also with `Search::singlePass()`), it
-never moves pieces between sheets, with `UPSIZE_LAST` it leaves the other
-sheets alone even when they have some waste, and with `Objective::minCuts()` the cut that separates
-the new remnant is counted in the result but not in the comparison of the
-candidate plans. Choose the threshold as the smallest remnant you would sell
-or stock as a full sheet: a low threshold makes almost every leftover count
-and the step then changes nothing (every format ties).
+never moves pieces between sheets, with `lastSheet()` it leaves the other
+sheets alone even when they have some waste, and with `Objective::minCuts()`
+the cut that separates the new remnant is counted in the result but not in
+the comparison of the candidate plans. Choose the threshold as the smallest
+remnant you would sell or stock as a full sheet: a low threshold makes almost
+every leftover count and the step then changes nothing (every format ties).
+
+How the two combine:
+
+| `remnants` | `upsize` | Result |
+|---|---|---|
+| `none()` | `none()` | plan with the least material, no remnants reported |
+| `auto(200)` | `none()` | same plan, leftovers from 200 mm marked |
+| `none()` | `lastSheet(2500, 1000)` | the last sheet may grow; remnants not marked, the PDF still notes the enlargement |
+| `auto(200)` | `lastSheet(2500, 1000)` | grows only for a 2500 × 1000 remnant; every leftover from 200 mm marked |
+
+The 2.1 form `Remnants::atLeast(…, upsize: Remnants::UPSIZE_LAST)` still works
+(deprecated): it becomes the matching `Upsize` option with the marking
+threshold. It cannot be combined with an explicit `upsize:`.
 
 ### Job
 
-`NestingJob::create(material, objective, search, remnants)` – every argument
-optional. `->addStock(width, height, quantity)` (omit `quantity` for unlimited
-stock), `->addPiece(width, height, quantity, label)`.
+`NestingJob::create(material, objective, search, remnants, upsize)` – every
+argument optional. `->addStock(width, height, quantity)` (omit `quantity` for
+unlimited stock), `->addPiece(width, height, quantity, label)`.
 
 ## Result
 

@@ -10,6 +10,7 @@ use Multiplast\SheetNester\Options\Material;
 use Multiplast\SheetNester\Options\Objective;
 use Multiplast\SheetNester\Options\Remnants;
 use Multiplast\SheetNester\Options\Search;
+use Multiplast\SheetNester\Options\Upsize;
 
 /**
  * Everything one nesting run needs: the options and the lists of stock
@@ -19,7 +20,8 @@ use Multiplast\SheetNester\Options\Search;
  *           material:  new Material(kerf: 4, grain: Grain::ALONG_HEIGHT),
  *           objective: Objective::minCuts(cutCostM2: 0.05),
  *           search:    new Search(restarts: 50, seed: 42, timeBudgetMs: 8000),
- *           remnants:  Remnants::auto(minSide: 200),
+ *           remnants:  Remnants::auto(minSide: 200),                        // marking only
+ *           upsize:    Upsize::lastSheet(minWidth: 2500, minHeight: 1000),  // changes consumption
  *       )
  *       ->addStock(2100, 6000, quantity: 10)            // quantity null = unlimited
  *       ->addPiece(500, 1000, quantity: 3, label: 'window A');
@@ -35,26 +37,43 @@ final class NestingJob
     /** @var Piece[] */
     private array $pieces = [];
 
+    private Upsize $upsize;
+
+    /**
+     * @throws \InvalidArgumentException When both $upsize and the deprecated
+     *         upsize argument of Remnants ask for larger sheets.
+     */
     public function __construct(
         private Material  $material,
         private Objective $objective,
         private Search    $search,
         private Remnants  $remnants,
+        ?Upsize           $upsize = null,
     ) {
+        $legacy = $remnants->legacyUpsize();
+        if ($upsize !== null && $upsize->enabled() && $legacy->enabled()) {
+            throw new \InvalidArgumentException(
+                'Set larger sheets for remnants either with NestingJob::create(upsize: …) or with the '
+                . 'deprecated Remnants upsize argument, not both.'
+            );
+        }
+        $this->upsize = $upsize !== null && $upsize->enabled() ? $upsize : $legacy;
     }
 
-    /** Defaults: solid material without kerf, least material, 20 restarts, no remnants. */
+    /** Defaults: solid material without kerf, least material, 20 restarts, no remnants, no upsizing. */
     public static function create(
         ?Material  $material = null,
         ?Objective $objective = null,
         ?Search    $search = null,
-        ?Remnants  $remnants = null
+        ?Remnants  $remnants = null,
+        ?Upsize    $upsize = null
     ): self {
         return new self(
             $material  ?? new Material(),
             $objective ?? Objective::minWaste(),
             $search    ?? new Search(),
-            $remnants  ?? Remnants::none()
+            $remnants  ?? Remnants::none(),
+            $upsize
         );
     }
 
@@ -115,6 +134,15 @@ final class NestingJob
     public function remnants(): Remnants
     {
         return $this->remnants;
+    }
+
+    /**
+     * The effective upsize option: the one passed to create(), else the one
+     * derived from the deprecated Remnants upsize argument, else none.
+     */
+    public function upsize(): Upsize
+    {
+        return $this->upsize;
     }
 
     /**

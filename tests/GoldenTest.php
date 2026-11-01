@@ -9,6 +9,7 @@ use Multiplast\SheetNester\Options\Material;
 use Multiplast\SheetNester\Options\Objective;
 use Multiplast\SheetNester\Options\Remnants;
 use Multiplast\SheetNester\Options\Search;
+use Multiplast\SheetNester\Options\Upsize;
 use Multiplast\SheetNester\Render\SvgRenderer;
 use PHPUnit\Framework\TestCase;
 
@@ -67,11 +68,12 @@ final class GoldenTest extends TestCase
                 1,
                 [[2000, 2000, 30], [7000, 100, 1]],
             ],
-            // minimum remnant size in both dimensions + a larger format for the leftover sheet
+            // minimum remnant size in both dimensions + a larger format for the last sheet
             'min_waste-r20-atleast-upsize' => [
                 [
                     'search'   => new Search(restarts: 20, seed: 42),
-                    'remnants' => Remnants::atLeast(1000, 1000, upsize: Remnants::UPSIZE_LAST),
+                    'remnants' => Remnants::atLeast(1000, 1000),
+                    'upsize'   => Upsize::lastSheet(1000, 1000),
                 ],
                 GoldenDataset::STOCK, [],
             ],
@@ -79,7 +81,8 @@ final class GoldenTest extends TestCase
             'min_waste-r20-atleast-upsize-all' => [
                 [
                     'search'   => new Search(restarts: 20, seed: 42),
-                    'remnants' => Remnants::atLeast(1000, 1000, upsize: Remnants::UPSIZE_ALL),
+                    'remnants' => Remnants::atLeast(1000, 1000),
+                    'upsize'   => Upsize::allSheets(1000, 1000),
                 ],
                 GoldenDataset::STOCK, [],
             ],

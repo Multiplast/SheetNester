@@ -10,6 +10,7 @@ use Multiplast\SheetNester\Options\Material;
 use Multiplast\SheetNester\Options\Objective;
 use Multiplast\SheetNester\Options\Remnants;
 use Multiplast\SheetNester\Options\Search;
+use Multiplast\SheetNester\Options\Upsize;
 use Multiplast\SheetNester\Result\NestingResult;
 use Multiplast\SheetNester\SheetNester;
 
@@ -44,7 +45,7 @@ final class GoldenDataset
     public const REMNANT_FORMATS = [[2000, 1050], [1000, 1050], [500, 500]];
 
     /**
-     * @param array<string, mixed>             $options     Overrides: material, objective, search, remnants.
+     * @param array<string, mixed>             $options     Overrides: material, objective, search, remnants, upsize.
      * @param int                              $stock       Sheets per format.
      * @param array<int, array{int, int, int}> $extraPieces Additional [width, height, qty] lines.
      */
@@ -55,6 +56,7 @@ final class GoldenDataset
             $options['objective'] ?? Objective::minWaste(),
             $options['search']    ?? new Search(restarts: 200, seed: 42),
             $options['remnants']  ?? Remnants::auto(200.0),
+            $options['upsize']    ?? Upsize::none(),
         );
         foreach (self::HEIGHTS as $height) {
             foreach (self::WIDTHS as $width) {

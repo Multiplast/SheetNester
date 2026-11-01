@@ -10,7 +10,10 @@ use Multiplast\SheetNester\Options\Material;
 use Multiplast\SheetNester\Options\Objective;
 use Multiplast\SheetNester\Options\Remnants;
 use Multiplast\SheetNester\Options\Search;
+use Multiplast\SheetNester\Options\Upsize;
 use Multiplast\SheetNester\Result\Cut;
+use Multiplast\SheetNester\Result\NestingResult;
+use Multiplast\SheetNester\Result\SheetPlan;
 use Multiplast\SheetNester\SheetNester;
 use PHPUnit\Framework\TestCase;
 
@@ -277,35 +280,53 @@ final class FeaturesTest extends TestCase
         self::assertSame([0.0, 1004.0], [$cuts->vertical[0]->start, $cuts->vertical[0]->end]);
     }
 
+    /**
+     * Solves a single-pass job on the given stock (default 6000 / 5000 / 4000 × 2100,
+     * 5 each) with channels along X unless stated otherwise.
+     *
+     * @param array<int, array{int, int, int}>      $pieces
+     * @param array<int, array{int, int, int|null}> $stock
+     */
+    private static function solveUpsize(
+        Upsize   $upsize,
+        Remnants $remnants,
+        array    $pieces = [[3000, 2100, 1]],
+        array    $stock = [[6000, 2100, 5], [5000, 2100, 5], [4000, 2100, 5]],
+        string   $grain = Grain::ALONG_WIDTH,
+        float    $kerf = 0.0
+    ): NestingResult {
+        $job = NestingJob::create(new Material($kerf, $grain), search: Search::singlePass(), remnants: $remnants, upsize: $upsize);
+        foreach ($stock as [$w, $h, $q]) {
+            $job->addStock($w, $h, $q);
+        }
+        foreach ($pieces as [$w, $h, $q]) {
+            $job->addPiece($w, $h, $q);
+        }
+        return (new SheetNester())->solve($job);
+    }
+
+    /** @return int[] */
+    private static function formats(NestingResult $result): array
+    {
+        return array_map(fn($s) => (int) $s->width, $result->sheets);
+    }
+
+    /** @return array<int, array{float, float, float, float}> */
+    private static function remnantRects(SheetPlan $sheet): array
+    {
+        return array_map(fn($r) => [$r->x, $r->y, $r->width, $r->height], $sheet->remnants ?? []);
+    }
+
     public function testUpsizeTradesABiggerSheetForAUsableRemnant(): void
     {
         // One 3000×2100 piece, formats 6000 / 5000 / 4000 × 2100. Least material
         // is the 4000 (its 1000×2100 leftover is below the threshold); the 6000
         // leaves a sellable 3000×2100 remnant – net material 6.3 m² instead of 8.4.
-        $solve = static function (
-            Remnants $remnants,
-            array    $pieces = [[3000, 2100, 1]],
-            array    $stock = [[6000, 2100, 5], [5000, 2100, 5], [4000, 2100, 5]],
-            string   $grain = Grain::ALONG_WIDTH,
-            float    $kerf = 0.0
-        ) {
-            $job = NestingJob::create(new Material($kerf, $grain), search: Search::singlePass(), remnants: $remnants);
-            foreach ($stock as [$w, $h, $q]) {
-                $job->addStock($w, $h, $q);
-            }
-            foreach ($pieces as [$w, $h, $q]) {
-                $job->addPiece($w, $h, $q);
-            }
-            return (new SheetNester())->solve($job);
-        };
-        $formats  = fn($r) => array_map(fn($s) => (int) $s->width, $r->sheets);
-        $remnants = fn($s) => array_map(fn($r) => [$r->x, $r->y, $r->width, $r->height], $s->remnants);
-
-        $result = $solve(Remnants::atLeast(2500, 1000, upsize: Remnants::UPSIZE_LAST));
+        $result = self::solveUpsize(Upsize::lastSheet(minWidth: 2500, minHeight: 1000), Remnants::atLeast(2500, 1000));
         $sheet  = $result->sheets[0];
-        self::assertSame([6000], $formats($result));
+        self::assertSame([6000], self::formats($result));
         self::assertSame(['width' => 4000.0, 'height' => 2100.0], $sheet->upsizedFrom);
-        self::assertSame([[3000.0, 0.0, 3000.0, 2100.0]], $remnants($sheet));
+        self::assertSame([[3000.0, 0.0, 3000.0, 2100.0]], self::remnantRects($sheet));
         self::assertSame([12.6, 6.3, 6.3], [$result->materialM2, $result->remnantM2, $result->netMaterialM2]);
         self::assertSame(50.0, $sheet->usedPct);
         self::assertSame(1, $result->cutCount);                              // the piece's right edge became a cut
@@ -318,41 +339,83 @@ final class FeaturesTest extends TestCase
         self::assertArrayNotHasKey('upsized_from', $result->toLegacyArray()['sheets'][0]);
 
         // threshold 2000: the 5000 and the 6000 tie on net material → the smaller one
-        $result = $solve(Remnants::atLeast(2000, 1000, upsize: Remnants::UPSIZE_LAST));
-        self::assertSame([5000], $formats($result));
-        self::assertSame([[3000.0, 0.0, 2000.0, 2100.0]], $remnants($result->sheets[0]));
+        $result = self::solveUpsize(Upsize::lastSheet(2000, 1000), Remnants::atLeast(2000, 1000));
+        self::assertSame([5000], self::formats($result));
+        self::assertSame([[3000.0, 0.0, 2000.0, 2100.0]], self::remnantRects($result->sheets[0]));
         self::assertSame(6.3, $result->netMaterialM2);
 
         // threshold 3500: no format yields a usable remnant → nothing changes
-        $result = $solve(Remnants::atLeast(3500, 1000, upsize: Remnants::UPSIZE_LAST));
-        self::assertSame([4000], $formats($result));
+        $result = self::solveUpsize(Upsize::lastSheet(3500, 1000), Remnants::atLeast(3500, 1000));
+        self::assertSame([4000], self::formats($result));
         self::assertNull($result->sheets[0]->upsizedFrom);
         self::assertSame([8.4, 0.0, 8.4], [$result->materialM2, $result->remnantM2, $result->netMaterialM2]);
 
-        // a low threshold accepts the 1000×2100 leftover as well: every format
-        // ties on net material, so the smallest stays
-        $result = $solve(Remnants::auto(200, upsize: Remnants::UPSIZE_LAST));
-        self::assertSame([4000], $formats($result));
-        self::assertSame([[3000.0, 0.0, 1000.0, 2100.0]], $remnants($result->sheets[0]));
+        // a low upsize threshold accepts the 1000×2100 leftover as well: every
+        // format ties on net material, so the smallest stays
+        $result = self::solveUpsize(Upsize::lastSheet(200, 200), Remnants::auto(200));
+        self::assertSame([4000], self::formats($result));
+        self::assertSame([[3000.0, 0.0, 1000.0, 2100.0]], self::remnantRects($result->sheets[0]));
 
         // upsize off: marking only
-        $result = $solve(Remnants::atLeast(2500, 1000));
-        self::assertSame([4000], $formats($result));
+        $result = self::solveUpsize(Upsize::none(), Remnants::atLeast(2500, 1000));
+        self::assertSame([4000], self::formats($result));
         self::assertNull($result->sheets[0]->upsizedFrom);
         self::assertNull($result->toArray()['sheets'][0]['upsized_from']);
 
         // a full sheet never grows
-        $result = $solve(Remnants::atLeast(2500, 1000, upsize: Remnants::UPSIZE_LAST), [[3000, 2100, 2]]);
-        self::assertSame([6000], $formats($result));
+        $result = self::solveUpsize(Upsize::lastSheet(2500, 1000), Remnants::atLeast(2500, 1000), [[3000, 2100, 2]]);
+        self::assertSame([6000], self::formats($result));
         self::assertNull($result->sheets[0]->upsizedFrom);
         self::assertSame(12.6, $result->netMaterialM2);
 
-        // UPSIZE_LAST: at most one sheet grows – two 3500 pieces on two 4000 → only
-        // one of them becomes a 6000 with a 2500 remnant, the other keeps its 500 mm waste
-        $result = $solve(Remnants::atLeast(2500, 1000, upsize: Remnants::UPSIZE_LAST), [[3500, 2100, 2]]);
-        self::assertSame([6000, 4000], $formats($result));
-        self::assertSame([[3500.0, 0.0, 2500.0, 2100.0]], $remnants($result->sheets[0]));
+        // registered remnant formats as the threshold
+        $result = self::solveUpsize(Upsize::lastSheet(formats: [[2500, 2100]]), Remnants::defined([[2500, 2100]]));
+        self::assertSame([6000], self::formats($result));
+        self::assertSame([[3000.0, 0.0, 2500.0, 2100.0]], self::remnantRects($result->sheets[0]));
+        self::assertSame(7.35, $result->netMaterialM2);
+
+        // the last 6000 is taken by a full sheet; the 5000 does not pay (2000 wide leftover)
+        $result = self::solveUpsize(Upsize::lastSheet(2500, 1000), Remnants::atLeast(2500, 1000), [[6000, 2100, 1], [3000, 2100, 1]], [[6000, 2100, 1], [5000, 2100, 5], [4000, 2100, 5]]);
+        self::assertSame([6000, 4000], self::formats($result));
+        self::assertNull($result->sheets[1]->upsizedFrom);
+
+        // kerf: the footprint leaves 2996 mm, still above the threshold
+        $result = self::solveUpsize(Upsize::lastSheet(2500, 1000), Remnants::atLeast(2500, 1000), [[3000, 2100, 1]], [[6000, 2100, 5], [4000, 2100, 5]], Grain::ALONG_WIDTH, 4.0);
+        self::assertSame([6000], self::formats($result));
+        self::assertSame([[3004.0, 0.0, 2996.0, 2100.0]], self::remnantRects($result->sheets[0]));
+        self::assertSame([6.2916, 6.3084], [$result->remnantM2, $result->netMaterialM2]);
+
+        // with Grain::NONE the minimum may be turned: 1000 × 2500 accepts a 3000 × 2100 remnant
+        $result = self::solveUpsize(Upsize::lastSheet(1000, 2500), Remnants::atLeast(1000, 2500), [[3000, 2100, 1]], [[6000, 2100, 5], [4000, 2100, 5]], Grain::NONE);
+        self::assertSame([6000], self::formats($result));
+        self::assertSame(6.3, $result->netMaterialM2);
+    }
+
+    public function testLastSheetIsTheSheetOpenedLast(): void
+    {
+        // FFD order: the 3000×2100 piece opens sheet 1 (a 4000, 75 % used), the
+        // two 3900×1000 pieces open sheet 2 (a 4000, 92.9 % used). The last sheet
+        // is sheet 2 even though sheet 1 is the less used one: on a 6000 it gets
+        // a 2100×2100 remnant (≥ 2000×1000), net 8.19 < 8.4 m².
+        $result = self::solveUpsize(Upsize::lastSheet(2000, 1000), Remnants::atLeast(2000, 1000), [[3000, 2100, 1], [3900, 1000, 2]]);
+        self::assertSame([6000, 4000], self::formats($result));
+        self::assertSame([3900.0, 3900.0], array_map(fn($p) => $p->width, $result->sheets[0]->pieces));
         self::assertSame(['width' => 4000.0, 'height' => 2100.0], $result->sheets[0]->upsizedFrom);
+        self::assertSame([[3900.0, 0.0, 2100.0, 2100.0]], self::remnantRects($result->sheets[0]));
+        self::assertSame(3000.0, $result->sheets[1]->pieces[0]->width);
+        self::assertNull($result->sheets[1]->upsizedFrom);
+
+        // allSheets() enlarges the first sheet too (5000 and 6000 tie at 6.3 → 5000)
+        $result = self::solveUpsize(Upsize::allSheets(2000, 1000), Remnants::atLeast(2000, 1000), [[3000, 2100, 1], [3900, 1000, 2]]);
+        self::assertSame([6000, 5000], self::formats($result));
+        self::assertSame(3000.0, $result->sheets[1]->pieces[0]->width);
+        self::assertSame(['width' => 4000.0, 'height' => 2100.0], $result->sheets[1]->upsizedFrom);
+
+        // lastSheet(): at most one sheet grows – two 3500 pieces on two 4000 →
+        // only the last one becomes a 6000 with a 2500 remnant
+        $result = self::solveUpsize(Upsize::lastSheet(2500, 1000), Remnants::atLeast(2500, 1000), [[3500, 2100, 2]]);
+        self::assertSame([6000, 4000], self::formats($result));
+        self::assertSame([[3500.0, 0.0, 2500.0, 2100.0]], self::remnantRects($result->sheets[0]));
         self::assertSame([], $result->sheets[1]->remnants);
         self::assertNull($result->sheets[1]->upsizedFrom);
         self::assertSame([21.0, 5.25, 15.75], [$result->materialM2, $result->remnantM2, $result->netMaterialM2]);
@@ -362,44 +425,56 @@ final class FeaturesTest extends TestCase
         }
         self::assertSame([4000 => [1, 4], 6000 => [1, 4]], $usage);
 
-        // UPSIZE_ALL: every sheet where it pays → both become a 6000 with a 2500 remnant
-        $result = $solve(Remnants::atLeast(2500, 1000, upsize: Remnants::UPSIZE_ALL), [[3500, 2100, 2]]);
-        self::assertSame([6000, 6000], $formats($result));
-        self::assertSame([[3500.0, 0.0, 2500.0, 2100.0]], $remnants($result->sheets[1]));
-        self::assertSame(['width' => 4000.0, 'height' => 2100.0], $result->sheets[1]->upsizedFrom);
+        // allSheets(): both become a 6000 with a 2500 remnant
+        $result = self::solveUpsize(Upsize::allSheets(2500, 1000), Remnants::atLeast(2500, 1000), [[3500, 2100, 2]]);
+        self::assertSame([6000, 6000], self::formats($result));
         self::assertSame([25.2, 10.5, 14.7], [$result->materialM2, $result->remnantM2, $result->netMaterialM2]);
         self::assertSame([2, 3], [$result->stockUsage[0]->used, $result->stockUsage[0]->remaining]);
+    }
 
-        // the leftover sheet is the one with the lowest utilisation: a 3500 and a
-        // 3000 piece each on a 4000 → the 3000 (75 %) grows, the 3500 (87.5 %) stays
-        $result = $solve(Remnants::atLeast(2500, 1000, upsize: Remnants::UPSIZE_LAST), [[3500, 2100, 1], [3000, 2100, 1]]);
-        self::assertSame([6000, 4000], $formats($result));
-        self::assertSame(3000.0, $result->sheets[0]->pieces[0]->width);
-        self::assertSame([[3000.0, 0.0, 3000.0, 2100.0]], $remnants($result->sheets[0]));
-        self::assertSame(3500.0, $result->sheets[1]->pieces[0]->width);
-        self::assertNull($result->sheets[1]->upsizedFrom);
+    public function testUpsizeAndMarkingAreIndependent(): void
+    {
+        // no marking: the sheet still grows, the result just shows no remnants
+        $result = self::solveUpsize(Upsize::lastSheet(2500, 1000), Remnants::none());
+        self::assertSame([6000], self::formats($result));
+        self::assertSame(['width' => 4000.0, 'height' => 2100.0], $result->sheets[0]->upsizedFrom);
+        self::assertNull($result->sheets[0]->remnants);
+        self::assertSame([null, null], [$result->remnantM2, $result->netMaterialM2]);
 
-        // registered remnant formats as the threshold
-        $result = $solve(Remnants::defined([[2500, 2100]], upsize: Remnants::UPSIZE_LAST));
-        self::assertSame([6000], $formats($result));
-        self::assertSame([[3000.0, 0.0, 2500.0, 2100.0]], $remnants($result->sheets[0]));
-        self::assertSame(7.35, $result->netMaterialM2);
+        // marking every leftover from 200 mm does not lower the upsize threshold:
+        // the sheet grows for the 2500×1000 remnant (with one shared 200 mm
+        // threshold every format would tie and the 4000 would stay)
+        $result = self::solveUpsize(Upsize::lastSheet(2500, 1000), Remnants::auto(200));
+        self::assertSame([6000], self::formats($result));
+        self::assertSame([[3000.0, 0.0, 3000.0, 2100.0]], self::remnantRects($result->sheets[0]));
 
-        // the last 6000 is taken by a full sheet; the 5000 does not pay (2000 wide leftover)
-        $result = $solve(Remnants::atLeast(2500, 1000, upsize: Remnants::UPSIZE_LAST), [[6000, 2100, 1], [3000, 2100, 1]], [[6000, 2100, 1], [5000, 2100, 5], [4000, 2100, 5]]);
-        self::assertSame([6000, 4000], $formats($result));
-        self::assertNull($result->sheets[1]->upsizedFrom);
+        // … and a high marking threshold does not raise it: nothing is marked
+        $result = self::solveUpsize(Upsize::lastSheet(2500, 1000), Remnants::atLeast(4000, 1000));
+        self::assertSame([6000], self::formats($result));
+        self::assertSame([], $result->sheets[0]->remnants);
+        self::assertSame(12.6, $result->netMaterialM2);
+    }
 
-        // kerf: the footprint leaves 2996 mm, still above the threshold
-        $result = $solve(Remnants::atLeast(2500, 1000, upsize: Remnants::UPSIZE_LAST), [[3000, 2100, 1]], [[6000, 2100, 5], [4000, 2100, 5]], Grain::ALONG_WIDTH, 4.0);
-        self::assertSame([6000], $formats($result));
-        self::assertSame([[3004.0, 0.0, 2996.0, 2100.0]], $remnants($result->sheets[0]));
-        self::assertSame([6.2916, 6.3084], [$result->remnantM2, $result->netMaterialM2]);
+    public function testDeprecatedRemnantsUpsizeArgumentStillWorks(): void
+    {
+        $job = NestingJob::create(remnants: Remnants::atLeast(2500, 1000, upsize: Remnants::UPSIZE_LAST));
+        self::assertSame([Upsize::LAST_SHEET, 2500.0, 1000.0, []], [$job->upsize()->scope, $job->upsize()->minWidth, $job->upsize()->minHeight, $job->upsize()->formats]);
 
-        // with Grain::NONE the minimum may be turned: 1000 × 2500 accepts a 3000 × 2100 remnant
-        $result = $solve(Remnants::atLeast(1000, 2500, upsize: Remnants::UPSIZE_LAST), [[3000, 2100, 1]], [[6000, 2100, 5], [4000, 2100, 5]], Grain::NONE);
-        self::assertSame([6000], $formats($result));
-        self::assertSame(6.3, $result->netMaterialM2);
+        $job = NestingJob::create(remnants: Remnants::defined([[2500, 2100]], upsize: Remnants::UPSIZE_ALL));
+        self::assertSame([Upsize::ALL_SHEETS, [[2500.0, 2100.0]]], [$job->upsize()->scope, $job->upsize()->formats]);
+
+        self::assertSame(Upsize::NONE, NestingJob::create(remnants: Remnants::auto(200))->upsize()->scope);
+
+        $legacy = self::solveUpsize(Upsize::none(), Remnants::atLeast(2500, 1000, upsize: Remnants::UPSIZE_LAST));
+        $new    = self::solveUpsize(Upsize::lastSheet(2500, 1000), Remnants::atLeast(2500, 1000));
+        $legacy->calculationMs = $new->calculationMs = 0.0;
+        self::assertSame($new->toArray(), $legacy->toArray());
+
+        $this->expectException(\InvalidArgumentException::class);
+        NestingJob::create(
+            remnants: Remnants::atLeast(2500, 1000, upsize: Remnants::UPSIZE_LAST),
+            upsize:   Upsize::lastSheet(2500, 1000),
+        );
     }
 
     public function testUpsizeAppliesToSmallOrdersAsWell(): void
@@ -407,14 +482,12 @@ final class FeaturesTest extends TestCase
         // A 1000×2100 piece: from the 2500 the 1500×2100 leftover is below the
         // threshold, from the 4000 it is a 3000×2100 remnant. The 5000 and the
         // 6000 tie with the 4000 on net material, so the smallest of them wins.
-        $job = NestingJob::create(new Material(0, Grain::ALONG_WIDTH), search: Search::singlePass(), remnants: Remnants::atLeast(2500, 1000, upsize: Remnants::UPSIZE_LAST))
-            ->addStock(6000, 2100, 5)
-            ->addStock(5000, 2100, 5)
-            ->addStock(4000, 2100, 5)
-            ->addStock(2500, 2100, 5)
-            ->addPiece(1000, 2100);
-
-        $result = (new SheetNester())->solve($job);
+        $result = self::solveUpsize(
+            Upsize::lastSheet(2500, 1000),
+            Remnants::atLeast(2500, 1000),
+            [[1000, 2100, 1]],
+            [[6000, 2100, 5], [5000, 2100, 5], [4000, 2100, 5], [2500, 2100, 5]]
+        );
 
         self::assertSame(4000.0, $result->sheets[0]->width);
         self::assertSame(['width' => 2500.0, 'height' => 2100.0], $result->sheets[0]->upsizedFrom);

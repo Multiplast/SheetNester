@@ -17,7 +17,7 @@ namespace Multiplast\SheetNester\Options;
  *                   Independent of the Remnants option – the rectangle is
  *                   measured without its minimum size or formats.
  *
- * No objective trades material for a remnant; see Remnants::$upsize for that.
+ * No objective trades material for a remnant; see Options\Upsize for that.
  *
  * Immutable by convention – treat the public properties as read-only.
  */

@@ -1,6 +1,35 @@
 # Changelog
 
-## Unreleased
+## Unreleased (2.2.0)
+
+### Added
+
+- **`Options\Upsize` – a larger sheet for a usable remnant as its own
+  option**, `NestingJob::create(…, upsize: Upsize::lastSheet(minWidth: 2500,
+  minHeight: 1000))` (or `formats: [[w, h], …]`, or `Upsize::allSheets(…)`),
+  read back with `NestingJob::upsize()`. It has its own threshold and is
+  independent of `Remnants`, which now only marks leftovers: a job can mark
+  every leftover from 200 mm and still enlarge a sheet only for a
+  2500 × 1000 remnant, or enlarge without marking at all (the PDF still notes
+  the enlargement).
+
+### Changed
+
+- **`lastSheet()` enlarges the last sheet of the plan** – the sheet opened
+  last, which holds the leftover pieces. In 2.1 `UPSIZE_LAST` picked the
+  sheet with the lowest utilisation; on the golden dataset both are the same
+  sheet, but they can differ.
+
+### Deprecated
+
+- The `upsize` argument of `Remnants::auto()` / `atLeast()` / `defined()`,
+  the `Remnants::UPSIZE_*` constants and `Remnants::upsizes()`. They keep
+  working: the job turns them into the matching `Upsize` option with the
+  marking threshold (`UPSIZE_LAST` → `lastSheet()` with the new meaning
+  above). Combining them with an explicit `upsize:` throws
+  `InvalidArgumentException`. To be removed in 3.0.
+
+### PDF
 
 - `Render\PdfReport`: the pieces table keeps every row on one line (no
   wrapping; mPDF shrinks the table to the page width when a label is very

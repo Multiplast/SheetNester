@@ -34,8 +34,7 @@ final class NestingResult
 
     /**
      * Material used less the marked remnants (m²): what the job consumes when
-     * the remnants go back to stock – the quantity Remnants::$upsize
-     * minimises per sheet. Null when remnant marking is off.
+     * the marked remnants go back to stock. Null when remnant marking is off.
      */
     public ?float $netMaterialM2 = null;
 

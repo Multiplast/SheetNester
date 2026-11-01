@@ -5,30 +5,31 @@ declare(strict_types=1);
 namespace Multiplast\SheetNester\Internal;
 
 use Multiplast\SheetNester\Options\Remnants;
+use Multiplast\SheetNester\Options\Upsize;
 
 /**
- * Post-processing step for Remnants::$upsize: gives a sheet a larger stock
+ * Post-processing step for Options\Upsize: gives a sheet a larger stock
  * format when that turns its waste into a usable remnant – the mirror image
- * of FormatReducer. Runs once, on the winning plan, after the solver.
+ * of FormatReducer. Runs once, on the winning plan, after the solver and
+ * before the sheets are ordered for printing.
  *
- * Which sheets are considered is the scope (Remnants::UPSIZE_*):
- *  - UPSIZE_LAST: only the leftover sheet – the one with the lowest
- *    piece-area utilisation (ties → the sheet opened last), in practice the
- *    last, partially filled sheet of the plan;
- *  - UPSIZE_ALL:  every sheet, in the order the packer opened them.
+ * Which sheets are considered is the scope:
+ *  - Upsize::LAST_SHEET: only the last sheet of the plan – the one opened
+ *    last (the last element of $sheets, which arrive in opening order);
+ *  - Upsize::ALL_SHEETS: every sheet, in opening order.
  *
  * A sheet's candidate formats are the available stock formats (remaining
  * stock > 0) with a larger area that still contain all its pieces at their
  * current positions. Each candidate is valued by its net material:
  *
- *     net = format area − area of the usable remnants the RemnantFinder
- *           would mark on it (the same marking the result shows)
+ *     net = format area − area of the remnants that meet the upsize
+ *           threshold (found by the RemnantFinder given here)
  *
  * The sheet moves to the candidate with the lowest net material, but only on
  * a strict improvement over its current format; ties go to the smaller
  * format. Hence a fully used sheet never grows (a larger format adds at most
  * as much remnant as area), and a sheet grows only when its waste becomes
- * part of a remnant that meets the Remnants threshold. Pieces never move.
+ * part of a remnant that meets the threshold. Pieces never move.
  *
  * Deterministic: no RNG, a fixed work budget for the remnant searches.
  *
@@ -38,8 +39,9 @@ final class FormatUpsizer
 {
     /**
      * @param StockFormat[] $stockFormats Registered formats; never mutated.
-     * @param string        $remnantMode  Remnants::AUTO or Remnants::DEFINED.
-     * @param string        $scope        Remnants::UPSIZE_LAST or Remnants::UPSIZE_ALL.
+     * @param RemnantFinder $finder       Configured with the upsize threshold.
+     * @param string        $remnantMode  Remnants::AUTO (minimum size) or Remnants::DEFINED (formats).
+     * @param string        $scope        Upsize::LAST_SHEET or Upsize::ALL_SHEETS.
      */
     public function __construct(
         private array         $stockFormats,
@@ -57,7 +59,7 @@ final class FormatUpsizer
      */
     public function upsize(array &$sheets): int
     {
-        if ($this->remnantMode === Remnants::NONE || $this->scope === Remnants::UPSIZE_NONE || $sheets === []) {
+        if ($this->remnantMode === Remnants::NONE || $this->scope === Upsize::NONE || $sheets === []) {
             return 0;
         }
 
@@ -76,7 +78,7 @@ final class FormatUpsizer
         $formats = $this->stockFormats;
         usort($formats, fn(StockFormat $a, StockFormat $b) => $a->area() <=> $b->area());
 
-        $targets = $this->scope === Remnants::UPSIZE_ALL ? $sheets : [$this->leftoverSheet($sheets)];
+        $targets = $this->scope === Upsize::ALL_SHEETS ? $sheets : [$sheets[array_key_last($sheets)]];
         $budget  = RemnantFinder::WORK_BUDGET;
         $changed = 0;
 
@@ -157,35 +159,8 @@ final class FormatUpsizer
     }
 
     /**
-     * The leftover sheet of the plan: lowest piece-area utilisation, ties →
-     * the sheet opened last (the sheets arrive in the order the packer opened
-     * them).
-     *
-     * @param Sheet[] $sheets  Non-empty.
-     */
-    private function leftoverSheet(array $sheets): Sheet
-    {
-        $target = null;
-        $lowest = PHP_FLOAT_MAX;
-        foreach ($sheets as $sheet) {
-            $used = 0.0;
-            foreach ($sheet->pieces as $p) {
-                $used += $p->width * $p->height;
-            }
-            $area = $sheet->format->area();
-            $util = $area > 0 ? $used / $area : 1.0;
-            if ($util <= $lowest + 1e-12) {
-                $lowest = $util;
-                $target = $sheet;
-            }
-        }
-        return $target;
-    }
-
-    /**
-     * Total area (mm²) of the usable remnants the finder marks on the sheet's
-     * pieces laid on the given format – exactly what ResultBuilder::attachRemnants
-     * reports for that sheet.
+     * Total area (mm²) of the remnants meeting the upsize threshold that the
+     * finder marks on the sheet's pieces laid on the given format.
      */
     private function remnantArea(Sheet $sheet, StockFormat $format, int &$budget): float
     {

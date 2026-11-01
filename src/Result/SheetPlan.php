@@ -19,7 +19,7 @@ final class SheetPlan
     public ?float $remnantM2 = null;
 
     /**
-     * The stock format the sheet had before Remnants::$upsize gave it a larger
+     * The stock format the sheet had before Options\Upsize gave it a larger
      * one for a usable remnant; null when the sheet was not enlarged.
      *
      * @var array{width: float, height: float}|null

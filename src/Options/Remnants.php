@@ -6,15 +6,14 @@ namespace Multiplast\SheetNester\Options;
 
 /**
  * Whether and how usable remnants (leftover rectangles worth keeping) are
- * marked on the finished plan, and whether the plan may trade a bigger stock
- * sheet for one.
+ * marked on the finished plan. Marking is informative only – it never
+ * influences the placement, the formats or the consumption; it decides what
+ * the result reports (remnants, remnant_m2, net_material_m2) and what the
+ * renderers draw.
  *
- * Marking alone never influences the placement. With $upsize a sheet may be
- * reassigned to a larger stock format when that turns its waste into a
- * usable remnant (see Internal\FormatUpsizer): UPSIZE_LAST considers only the
- * leftover sheet of the plan (lowest utilisation – in practice the last,
- * partially filled one), UPSIZE_ALL every sheet. The pieces keep their
- * positions, only the format of a sheet changes.
+ * Trading a larger stock sheet for a usable remnant is a separate option
+ * with its own threshold: Options\Upsize (NestingJob::create(upsize: …)).
+ * The $upsize argument of the factories below is its deprecated 2.1 form.
  *
  * Immutable by convention – treat the public properties as read-only.
  */
@@ -24,13 +23,13 @@ final class Remnants
     public const AUTO    = 'auto';
     public const DEFINED = 'defined';
 
-    /** $upsize: never enlarge a sheet – marking only. */
+    /** @deprecated since 2.2 – use Upsize::none(). */
     public const UPSIZE_NONE = 'none';
 
-    /** $upsize: enlarge at most the leftover sheet (lowest utilisation). */
+    /** @deprecated since 2.2 – use Upsize::lastSheet() (now the last sheet of the plan). */
     public const UPSIZE_LAST = 'last';
 
-    /** $upsize: enlarge every sheet whose waste a larger format turns into a usable remnant. */
+    /** @deprecated since 2.2 – use Upsize::allSheets(). */
     public const UPSIZE_ALL = 'all';
 
     /**
@@ -42,7 +41,7 @@ final class Remnants
 
     /**
      * @param array<int, array{float, float}> $formats
-     * @param string $upsize One of the UPSIZE_* constants.
+     * @param string $upsize One of the deprecated UPSIZE_* constants.
      */
     private function __construct(
         public string $mode,
@@ -63,9 +62,7 @@ final class Remnants
      * Mark the largest empty rectangles whose shorter side is at least $minSide
      * mm – the same as atLeast($minSide, $minSide).
      *
-     * @param string $upsize UPSIZE_NONE (default), UPSIZE_LAST or UPSIZE_ALL –
-     *                       which sheets may take a larger stock format when
-     *                       that turns their waste into a usable remnant.
+     * @param string $upsize Deprecated since 2.2 – use NestingJob::create(upsize: Upsize::…).
      */
     public static function auto(float $minSide = 200.0, string $upsize = self::UPSIZE_NONE): self
     {
@@ -82,9 +79,7 @@ final class Remnants
      * a remnant cannot be turned, so the minimum is orientation-bound; with
      * Grain::NONE a rectangle qualifies in either orientation.
      *
-     * @param string $upsize UPSIZE_NONE (default), UPSIZE_LAST or UPSIZE_ALL –
-     *                       which sheets may take a larger stock format when
-     *                       that turns their waste into a usable remnant.
+     * @param string $upsize Deprecated since 2.2 – use NestingJob::create(upsize: Upsize::…).
      */
     public static function atLeast(float $width, float $height, string $upsize = self::UPSIZE_NONE): self
     {
@@ -100,9 +95,7 @@ final class Remnants
      * it fits) into the free area of every sheet.
      *
      * @param array<int, array{float, float}> $formats  [[width, height], ...] in mm
-     * @param string $upsize UPSIZE_NONE (default), UPSIZE_LAST or UPSIZE_ALL –
-     *                       which sheets may take a larger stock format when
-     *                       that turns their waste into a usable remnant.
+     * @param string $upsize Deprecated since 2.2 – use NestingJob::create(upsize: Upsize::…).
      */
     public static function defined(array $formats, string $upsize = self::UPSIZE_NONE): self
     {
@@ -126,10 +119,34 @@ final class Remnants
         return $this->mode !== self::NONE;
     }
 
-    /** Whether any sheet may take a larger format (UPSIZE_LAST or UPSIZE_ALL). */
+    /**
+     * Whether the deprecated $upsize argument asks for larger sheets.
+     *
+     * @deprecated since 2.2 – use NestingJob::upsize()->enabled().
+     */
     public function upsizes(): bool
     {
         return $this->upsize !== self::UPSIZE_NONE;
+    }
+
+    /**
+     * The deprecated $upsize argument as an Upsize option with this marking's
+     * threshold (minimum size, or the formats of defined()).
+     *
+     * @internal Used by NestingJob::upsize().
+     */
+    public function legacyUpsize(): Upsize
+    {
+        if (!$this->upsizes() || !$this->enabled()) {
+            return Upsize::none();
+        }
+        $formats = $this->mode === self::DEFINED ? $this->formats : null;
+        $width   = $formats === null ? $this->minWidth : null;
+        $height  = $formats === null ? $this->minHeight : null;
+
+        return $this->upsize === self::UPSIZE_ALL
+            ? Upsize::allSheets($width, $height, $formats)
+            : Upsize::lastSheet($width, $height, $formats);
     }
 
     private static function assertUpsize(string $upsize): void

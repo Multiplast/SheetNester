@@ -11,6 +11,7 @@ use Multiplast\SheetNester\Options\Material;
 use Multiplast\SheetNester\Options\Objective;
 use Multiplast\SheetNester\Options\Remnants;
 use Multiplast\SheetNester\Options\Search;
+use Multiplast\SheetNester\Options\Upsize;
 use Multiplast\SheetNester\Result\NestingResult;
 use Multiplast\SheetNester\SheetNester;
 use PHPUnit\Framework\TestCase;
@@ -33,8 +34,8 @@ final class JobApiTest extends TestCase
         self::assertTrue($job->search()->portfolio);
         self::assertFalse($job->search()->isSinglePass());
         self::assertFalse($job->remnants()->enabled());
-        self::assertSame(Remnants::UPSIZE_NONE, $job->remnants()->upsize);
-        self::assertFalse($job->remnants()->upsizes());
+        self::assertSame(Upsize::NONE, $job->upsize()->scope);
+        self::assertFalse($job->upsize()->enabled());
         self::assertSame([], $job->stock());
         self::assertSame([], $job->pieces());
     }
@@ -54,6 +55,12 @@ final class JobApiTest extends TestCase
             'bad remnant format' => fn() => Remnants::defined([[1000, 0]]),
             'bad upsize mode'    => fn() => Remnants::auto(200, upsize: 'sometimes'),
             'bad upsize mode 2'  => fn() => Remnants::defined([[1000, 500]], upsize: 'true'),
+            'upsize w/o size'    => fn() => Upsize::lastSheet(),
+            'upsize half size'   => fn() => Upsize::lastSheet(minWidth: 2500),
+            'upsize zero width'  => fn() => Upsize::allSheets(0, 1000),
+            'upsize size + fmts' => fn() => Upsize::lastSheet(2500, 1000, [[2500, 2100]]),
+            'upsize no formats'  => fn() => Upsize::lastSheet(formats: []),
+            'upsize bad format'  => fn() => Upsize::allSheets(formats: [[2500, 0]]),
             'stock width 0'      => fn() => NestingJob::create()->addStock(0, 1000),
             'stock quantity 0'   => fn() => NestingJob::create()->addStock(1000, 1000, 0),
             'piece width 0'      => fn() => NestingJob::create()->addPiece(0, 100),
@@ -85,12 +92,32 @@ final class JobApiTest extends TestCase
 
         self::assertSame([0.0, 0.0], [Remnants::none()->minWidth, Remnants::defined([[100, 100]])->minHeight]);
 
+        // deprecated 2.1 form, translated to an Upsize option with the marking threshold
         $last = Remnants::atLeast(500, 1000, upsize: Remnants::UPSIZE_LAST);
-        self::assertSame(Remnants::UPSIZE_LAST, $last->upsize);
         self::assertTrue($last->upsizes());
-        self::assertSame(Remnants::UPSIZE_ALL, Remnants::auto(200, upsize: Remnants::UPSIZE_ALL)->upsize);
-        self::assertSame(Remnants::UPSIZE_LAST, Remnants::defined([[100, 100]], upsize: Remnants::UPSIZE_LAST)->upsize);
+        self::assertSame([Upsize::LAST_SHEET, 500.0, 1000.0], [$last->legacyUpsize()->scope, $last->legacyUpsize()->minWidth, $last->legacyUpsize()->minHeight]);
+        self::assertSame(Upsize::ALL_SHEETS, Remnants::auto(200, upsize: Remnants::UPSIZE_ALL)->legacyUpsize()->scope);
+        self::assertSame([[100.0, 100.0]], Remnants::defined([[100, 100]], upsize: Remnants::UPSIZE_LAST)->legacyUpsize()->formats);
         self::assertFalse(Remnants::none()->upsizes());
+        self::assertFalse(Remnants::none()->legacyUpsize()->enabled());
+    }
+
+    public function testUpsizeOptions(): void
+    {
+        $last = Upsize::lastSheet(minWidth: 2500, minHeight: 1000);
+        self::assertSame([Upsize::LAST_SHEET, 2500.0, 1000.0, []], [$last->scope, $last->minWidth, $last->minHeight, $last->formats]);
+        self::assertTrue($last->enabled());
+        self::assertFalse($last->usesFormats());
+
+        $all = Upsize::allSheets(formats: [[2500, 2100], [3000, 2100]]);
+        self::assertSame([Upsize::ALL_SHEETS, [[2500.0, 2100.0], [3000.0, 2100.0]]], [$all->scope, $all->formats]);
+        self::assertTrue($all->usesFormats());
+
+        self::assertFalse(Upsize::none()->enabled());
+
+        $job = NestingJob::create(remnants: Remnants::auto(200), upsize: $last);
+        self::assertSame($last, $job->upsize());
+        self::assertSame(Remnants::AUTO, $job->remnants()->mode);
     }
 
     public function testSealFollowsTheGrainAxis(): void
