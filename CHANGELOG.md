@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.1 – 2026-11-11
+
+### Changed
+
+- **Licensed under MIT** (was proprietary). No code changes.
+- README: installation from the GitHub repository (the package is not on
+  Packagist), licence note on the optional mPDF dependency (GPL-2.0-only).
+
 ## 2.2.0 – 2026-11-02
 
 ### Added

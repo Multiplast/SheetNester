@@ -33,7 +33,10 @@ PHP guarantees since 8.0). PDF output needs `mpdf/mpdf` (^8.1).
 
 ## Installation
 
+The package is not on Packagist; install it from this repository:
+
 ```sh
+composer config repositories.sheet-nester vcs https://github.com/Multiplast/SheetNester
 composer require multiplast/sheet-nester
 composer require mpdf/mpdf          # only for Render\PdfReport
 ```
@@ -245,4 +248,6 @@ The public API is `SheetNester`, `NestingJob`, `Grain`, the `Options\*`,
 
 ## Licence
 
-See [LICENSE](LICENSE).
+MIT – see [LICENSE](LICENSE). The optional PDF output uses
+[mPDF](https://github.com/mpdf/mpdf), which is licensed under GPL-2.0-only;
+it is not bundled, you install it yourself.

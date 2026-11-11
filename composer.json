@@ -2,7 +2,7 @@
     "name": "multiplast/sheet-nester",
     "description": "2D nesting (guillotine bin packing) of rectangular pieces onto stock sheets, with SVG and PDF cutting plans.",
     "type": "library",
-    "license": "proprietary",
+    "license": "MIT",
     "keywords": ["nesting", "bin-packing", "guillotine", "cutting-plan", "sheet"],
     "authors": [
         {
