@@ -33,6 +33,10 @@ final class CutCalculator
      *      that separated it from its neighbour, i.e. kerf away from the
      *      neighbour's right/bottom edge; it is snapped back by the kerf so
      *      both pieces report the same blade pass instead of two parallel ones.
+     *      Not snapped: an edge on the origin of the piece's layout – on a
+     *      sheet assembled from several layouts (UpsizeMethod::MULTIPLE on an
+     *      exact multiple, kerf between them ignored) that is the dividing
+     *      cut itself.
      *   2. Discard segments on the sheet border (those are edges, not cuts).
      *   3. Merge collinear overlapping/touching segments to avoid double-counting
      *      shared edges between adjacent pieces.
@@ -52,8 +56,8 @@ final class CutCalculator
         $vertSegs  = [];
 
         foreach ($sheet->pieces as $p) {
-            $x1 = $p->x > 0.0 ? $p->x - $this->kerf : $p->x;
-            $y1 = $p->y > 0.0 ? $p->y - $this->kerf : $p->y;
+            $x1 = $p->x > $p->originX ? $p->x - $this->kerf : $p->x;
+            $y1 = $p->y > $p->originY ? $p->y - $this->kerf : $p->y;
             $x2 = $p->x + $p->width;
             $y2 = $p->y + $p->height;
 

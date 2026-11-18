@@ -105,26 +105,47 @@ Marking never influences the plan – it only decides which free rectangles
 the result reports (`remnants`, `remnant_m2`, `remnant_pct`, `net_material_m2`
 = material less marked remnants) and the renderers draw.
 
-### `Upsize` – a larger sheet for a usable remnant (changes consumption)
+### `Upsize` – a larger sheet (changes consumption)
 
 `Upsize::none()` (default), `Upsize::lastSheet(…)`, `Upsize::allSheets(…)`.
-After the solver has found the plan with the least material, a sheet may be
-moved to a larger stock format when that turns its waste into a usable
-remnant. `lastSheet()` considers only the last sheet of the plan – the sheet
-opened last, which holds the leftover pieces (with a single sheet, that one).
-`allSheets()` considers every sheet; with many stock formats that also
-enlarges sheets for a few millimetres of waste, so start with `lastSheet()`.
-The pieces keep their positions; only the format of a sheet changes, and
-`SheetPlan::$upsizedFrom` (`upsized_from`) records the original one.
+After the solver has found the plan with the least material, a sheet may get
+a larger stock format. `lastSheet()` considers only the last sheet of the
+plan – the sheet opened last, which holds the leftover pieces (with a single
+sheet, that one). `allSheets()` considers every sheet. The layouts never
+change; `SheetPlan::$upsizedFrom` (`upsized_from`) records the original format
+and `SheetPlan::$upsizeMethod` (`upsize_method`) how the sheet got the new one.
 
-The threshold – what counts as a usable remnant – belongs to this option and
-is independent of `Remnants`: a minimum size (`minWidth`, `minHeight`, same
-orientation rules as `Remnants::atLeast()`) or a list of `formats` one of which
-must fit:
+How a sheet gets a larger format is up to the methods – `UpsizeMethod`
+objects, each with its own settings, tried in the order given; a sheet that
+one method changed is left alone by the later ones:
 
 ```php
-Upsize::lastSheet(minWidth: 2500, minHeight: 1000)
-Upsize::lastSheet(formats: [[2500, 2100], [3000, 2100]])
+use Multiplast\SheetNester\Options\{Upsize, UpsizeMethod};
+
+Upsize::lastSheet(methods: [
+    UpsizeMethod::multiple(widthTolerance: 200),              // first: a format that holds it several times
+    UpsizeMethod::remnant(minWidth: 2500, minHeight: 1000),   // else: a larger format for a usable remnant
+])
+
+Upsize::lastSheet(minWidth: 2500, minHeight: 1000)   // shorthand for methods: [UpsizeMethod::remnant(2500, 1000)]
+```
+
+Give either the shorthand threshold or `methods`, not both; each method at
+most once.
+
+#### `UpsizeMethod::remnant(minWidth, minHeight)` / `remnant(formats: […])` – for a usable remnant
+
+A sheet is moved to a larger stock format when that turns its waste into a
+usable remnant. With `allSheets()` and many stock formats this also enlarges
+sheets for a few millimetres of waste, so start with `lastSheet()`. The
+threshold – what counts as a usable remnant – belongs to the method and is
+independent of `Remnants`: a minimum size (`minWidth`, `minHeight`, same
+orientation rules as `Remnants::atLeast()`) or a list of `formats` one of
+which must fit:
+
+```php
+UpsizeMethod::remnant(minWidth: 2500, minHeight: 1000)
+UpsizeMethod::remnant(formats: [[2500, 2100], [3000, 2100]])
 ```
 
 The candidates are the available formats that still hold the sheet's pieces;
@@ -133,7 +154,7 @@ meet the threshold`. The sheet moves only on a strict improvement, ties go to
 the smaller format, so a full sheet never grows and a sheet grows only when
 its waste becomes part of a remnant that meets the threshold. Example – one
 3000 × 2100 piece, formats 6000 / 5000 / 4000 × 2100,
-`Upsize::lastSheet(minWidth: 2500, minHeight: 1000)`:
+`UpsizeMethod::remnant(minWidth: 2500, minHeight: 1000)`:
 
 | Format | Leftover | Meets 2500 × 1000 | Net material |
 |---|---|---|---|
@@ -149,7 +170,61 @@ the comparison of the candidate plans. Choose the threshold as the smallest
 remnant you would sell or stock as a full sheet: a low threshold makes almost
 every leftover count and the step then changes nothing (every format ties).
 
-How the two combine:
+#### `UpsizeMethod::multiple(maxWidthMultiple, maxHeightMultiple, widthTolerance, heightTolerance)` – cut out of a larger format
+
+The sheet is cut out of an available stock format that holds its format
+several times – e.g. a 3500 × 2100 out of a 7000 × 2100, even when it is the
+only one: the other half stays as a remnant. Each direction has its own
+settings:
+
+| Argument | Default | Meaning |
+|---|---|---|
+| `maxWidthMultiple` | `3` | At most this many sheets side by side along the width (`1` = never along the width). |
+| `maxHeightMultiple` | `3` | At most this many sheets along the height. |
+| `widthTolerance` | `0` | How many mm the stock format may be wider than the sheets it holds side by side. |
+| `heightTolerance` | `0` | How many mm it may be higher than the sheets it holds along the height. |
+
+A stock format qualifies when it holds the sheet at least twice in all, at
+most the given number of times per direction, and what is left over beyond
+those sheets is within the tolerance per direction. The sheet is never turned
+(the channels keep their direction). With
+`UpsizeMethod::multiple(widthTolerance: 200, heightTolerance: 900)`:
+
+| Sheet | Stock format | Holds (W × H) | Left over (W × H) | Qualifies |
+|---|---|---|---|---|
+| 3500 × 2100 | 7000 × 2100 | 2 × 1 | 0 × 0 | yes |
+| 2000 × 1050 | 4000 × 2100 | 2 × 2 | 0 × 0 | yes |
+| 1900 × 2100 | 4000 × 2100 | 2 × 1 | 200 × 0 | yes |
+| 2000 × 1200 | 4000 × 2100 | 2 × 1 | 0 × 900 | yes |
+| 2000 × 1050 | 3000 × 2100 | 1 × 2 | 1000 × 0 | no (1000 > 200) |
+
+With the default tolerance of 0 only exact multiples qualify.
+
+The further parts of the stock format take other sheets of the same format –
+with `allSheets()` every such sheet, with `lastSheet()` those that fit into
+the format chosen for the last sheet. The sheets go in row by row from the
+top-left corner, so what is left over is one strip along the right / bottom
+edge; an empty part and that strip are ordinary free space, marked by
+`Remnants` like any other. Which format: with `lastSheet()` the fewest empty
+parts, then the most sheets nested; with `allSheets()` the most sheets nested,
+then the fewest empty parts, then the fewest stock sheets; among formats with
+the same number of parts the one with the least leftover, then the smaller
+one. Stock limits are respected, and the sheets nested into another one are
+returned to stock.
+
+The parts are a kerf apart where the leftover leaves room for it. On an exact
+multiple there is no room: the kerf of the dividing cut is ignored – a
+7000 holds exactly two 3500 layouts, and the cut list has one blade pass
+between them.
+
+`SheetPlan::$nestedSheets` (`nested_sheets`) lists where the nested sheets lie
+(`x`, `y`, `width`, `height`, each of the `upsizedFrom` format) and
+`SheetPlan::$nestedCapacity` (`nested_capacity`) how many the format holds;
+both are `null` on other sheets. The diagrams outline the parts with a dashed
+line, and the PDF header notes e.g. "multiple of 3500 × 2100 mm, 1/2 parts
+used".
+
+How `Remnants` and `Upsize` combine:
 
 | `remnants` | `upsize` | Result |
 |---|---|---|
@@ -175,7 +250,7 @@ convention):
 
 | | |
 |---|---|
-| `sheets` | `SheetPlan[]`, largest format first: `index`, `width`, `height`, `usedPct` (incl. kerf), `pieces` (`Placement`: `x`, `y`, `width`, `height`, `rotated`, `label`), `cuts` (`CutPlan`: `horizontal`/`vertical` `Cut` lists, lengths, `count()`), `sealMm`, `remnants` (`Remnant[]` or `null`), `remnantM2` |
+| `sheets` | `SheetPlan[]`, largest format first: `index`, `width`, `height`, `usedPct` (incl. kerf), `pieces` (`Placement`: `x`, `y`, `width`, `height`, `rotated`, `label`), `cuts` (`CutPlan`: `horizontal`/`vertical` `Cut` lists, lengths, `count()`), `sealMm`, `remnants` (`Remnant[]` or `null`), `remnantM2`, `upsizedFrom`, `upsizeMethod`, `nestedSheets`, `nestedCapacity` (see `Upsize`) |
 | `stockUsage` | `StockUsage[]`: `width`, `height`, `used`, `remaining` (`null` = unlimited) |
 | `unplaced` | `UnplacedPieces[]`: `width`, `height`, `qty`, `reasonCode` (`stock`, `too_large`), `reason()`, `label`; `unplacedCount()` |
 | totals | `materialM2`, `utilizationPct` (piece area / material), `wastePctAvg`, `cutCount`, `cutsMm`, `cutsHorizontalMm`, `cutsVerticalMm`, `sealMm` (`null` without channels), `remnantM2`, `remnantPct` |
@@ -228,8 +303,9 @@ Golden tests pin the complete output and SVG previews of a reference job
 (30 formats, 82 pieces: 18 sheets / 101.92 m² with `minWaste`, 200 restarts,
 seed 42) in `tests/fixtures`; a change that is not meant to change behaviour
 must leave them untouched. Property-based tests check geometry, kerf gaps,
-piece conservation, stock limits, totals, cuts, seal and remnants on random
-jobs, and that multi-pass searches never do worse than the single FFD pass.
+piece conservation, stock limits, totals, cuts, seal, remnants and the upsize
+step on random jobs (also on stock where formats hold each other several
+times), and that multi-pass searches never do worse than the single FFD pass.
 CI runs the suite on PHP 8.0–8.5.
 
 To accept an intended behaviour change, regenerate the fixtures and review the

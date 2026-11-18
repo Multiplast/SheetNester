@@ -12,6 +12,7 @@ use Multiplast\SheetNester\Options\Objective;
 use Multiplast\SheetNester\Options\Remnants;
 use Multiplast\SheetNester\Options\Search;
 use Multiplast\SheetNester\Options\Upsize;
+use Multiplast\SheetNester\Options\UpsizeMethod;
 use Multiplast\SheetNester\Result\NestingResult;
 use Multiplast\SheetNester\SheetNester;
 use PHPUnit\Framework\TestCase;
@@ -61,6 +62,20 @@ final class JobApiTest extends TestCase
             'upsize size + fmts' => fn() => Upsize::lastSheet(2500, 1000, [[2500, 2100]]),
             'upsize no formats'  => fn() => Upsize::lastSheet(formats: []),
             'upsize bad format'  => fn() => Upsize::allSheets(formats: [[2500, 0]]),
+            'upsize size + methods' => fn() => Upsize::lastSheet(2500, 1000, methods: [UpsizeMethod::multiple()]),
+            'upsize fmts + methods' => fn() => Upsize::lastSheet(formats: [[2500, 2100]], methods: [UpsizeMethod::multiple()]),
+            'upsize no methods'  => fn() => Upsize::lastSheet(methods: []),
+            'upsize bad method'  => fn() => Upsize::allSheets(methods: ['multiple']),
+            'upsize method twice'=> fn() => Upsize::allSheets(methods: [UpsizeMethod::multiple(), UpsizeMethod::multiple(2)]),
+            'remnant w/o size'   => fn() => UpsizeMethod::remnant(),
+            'remnant half size'  => fn() => UpsizeMethod::remnant(minHeight: 1000),
+            'remnant size + fmts'=> fn() => UpsizeMethod::remnant(2500, 1000, [[2500, 2100]]),
+            'multiple width 0'   => fn() => UpsizeMethod::multiple(maxWidthMultiple: 0),
+            'multiple height 0'  => fn() => UpsizeMethod::multiple(maxHeightMultiple: 0),
+            'multiple 1 x 1'     => fn() => UpsizeMethod::multiple(1, 1),
+            'negative width tol' => fn() => UpsizeMethod::multiple(widthTolerance: -1),
+            'negative height tol'=> fn() => UpsizeMethod::multiple(heightTolerance: -0.5),
+            'infinite tolerance' => fn() => UpsizeMethod::multiple(widthTolerance: INF),
             'stock width 0'      => fn() => NestingJob::create()->addStock(0, 1000),
             'stock quantity 0'   => fn() => NestingJob::create()->addStock(1000, 1000, 0),
             'piece width 0'      => fn() => NestingJob::create()->addPiece(0, 100),
@@ -114,6 +129,34 @@ final class JobApiTest extends TestCase
         self::assertTrue($all->usesFormats());
 
         self::assertFalse(Upsize::none()->enabled());
+        self::assertSame([], Upsize::none()->methods);
+
+        // the threshold arguments are the shorthand for the single remnant method
+        self::assertCount(1, $last->methods);
+        self::assertSame([UpsizeMethod::REMNANT, 2500.0, 1000.0], [$last->methods[0]->type, $last->methods[0]->minWidth, $last->methods[0]->minHeight]);
+        self::assertSame($last->methods[0], $last->method(UpsizeMethod::REMNANT));
+        self::assertNull($last->method(UpsizeMethod::MULTIPLE));
+        self::assertSame([[2500.0, 2100.0], [3000.0, 2100.0]], $all->methods[0]->formats);
+        self::assertTrue($all->methods[0]->usesFormats());
+
+        // methods in the order given, each with its own settings
+        $multiple = UpsizeMethod::multiple(maxHeightMultiple: 1, widthTolerance: 200);
+        $remnant  = UpsizeMethod::remnant(minWidth: 2500, minHeight: 1000);
+        $both     = Upsize::lastSheet(methods: [$multiple, $remnant]);
+        self::assertSame([$multiple, $remnant], $both->methods);
+        self::assertSame(
+            [UpsizeMethod::MULTIPLE, 3, 1, 200.0, 0.0],
+            [$multiple->type, $multiple->maxWidthMultiple, $multiple->maxHeightMultiple, $multiple->widthTolerance, $multiple->heightTolerance]
+        );
+        self::assertSame($multiple, $both->method(UpsizeMethod::MULTIPLE));
+        // the 2.2 properties mirror the remnant method's threshold, if there is one
+        self::assertSame([2500.0, 1000.0, []], [$both->minWidth, $both->minHeight, $both->formats]);
+        $only = Upsize::allSheets(methods: [UpsizeMethod::multiple()]);
+        self::assertSame([Upsize::ALL_SHEETS, 0.0, 0.0, [], false], [$only->scope, $only->minWidth, $only->minHeight, $only->formats, $only->usesFormats()]);
+        self::assertSame(
+            [3, 3, 0.0, 0.0],
+            [$only->methods[0]->maxWidthMultiple, $only->methods[0]->maxHeightMultiple, $only->methods[0]->widthTolerance, $only->methods[0]->heightTolerance]
+        );
 
         $job = NestingJob::create(remnants: Remnants::auto(200), upsize: $last);
         self::assertSame($last, $job->upsize());
@@ -205,7 +248,7 @@ final class JobApiTest extends TestCase
         self::assertSame(['sheets', 'material_m2', 'utilization_pct', 'waste_pct_avg', 'cut_count', 'cuts_mm', 'cuts_horizontal_mm', 'cuts_vertical_mm', 'seal_mm', 'remnant_m2', 'remnant_pct', 'net_material_m2', 'unplaced'], array_keys($array['totals']));
         self::assertSame($result->netMaterialM2, $array['totals']['net_material_m2']);
         self::assertSame(round($result->materialM2 - $result->remnantM2, 4), $result->netMaterialM2);
-        self::assertSame(['index', 'width', 'height', 'used_pct', 'seal_mm', 'pieces', 'cuts', 'remnants', 'remnant_m2', 'upsized_from'], array_keys($array['sheets'][0]));
+        self::assertSame(['index', 'width', 'height', 'used_pct', 'seal_mm', 'pieces', 'cuts', 'remnants', 'remnant_m2', 'upsized_from', 'upsize_method', 'nested_sheets', 'nested_capacity'], array_keys($array['sheets'][0]));
         self::assertSame(['count', 'horizontal_mm', 'vertical_mm', 'total_mm', 'horizontal', 'vertical'], array_keys($array['sheets'][0]['cuts']));
         self::assertSame(['x', 'y', 'width', 'height', 'rotated', 'label'], array_keys($array['sheets'][0]['pieces'][0]));
         self::assertIsString(json_encode($array, JSON_THROW_ON_ERROR));

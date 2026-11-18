@@ -116,7 +116,7 @@ final class GuillotinePacker
 
         $copy->pieces = [];
         foreach ($sheet->pieces as $p) {
-            $copy->pieces[] = new PlacedPiece($p->x, $p->y, $p->width, $p->height, $p->rotated, $p->line);
+            $copy->pieces[] = new PlacedPiece($p->x, $p->y, $p->width, $p->height, $p->rotated, $p->line, $p->originX, $p->originY);
         }
 
         $copy->freeRects = [];

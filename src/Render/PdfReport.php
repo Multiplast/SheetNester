@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Multiplast\SheetNester\Render;
 
+use Multiplast\SheetNester\Options\UpsizeMethod;
 use Multiplast\SheetNester\Result\NestingResult;
 use Multiplast\SheetNester\Result\Placement;
 use Multiplast\SheetNester\Result\Remnant;
@@ -85,6 +86,7 @@ final class PdfReport
         'sheet_remnant'    => 'Usable remnant',
         'sheet_seal'       => 'Seal',
         'sheet_upsized'    => 'enlarged from %s for a usable remnant',
+        'sheet_multiple'   => 'multiple of %s, %s/%s parts used',
         'pcs'              => 'pcs',
         'company_id'       => 'Company ID',
         'company_vat_id'   => 'VAT ID',
@@ -132,6 +134,7 @@ final class PdfReport
         'sheet_remnant'    => 'Použitelný zbytek',
         'sheet_seal'       => 'Páska',
         'sheet_upsized'    => 'zvětšeno z %s kvůli použitelnému zbytku',
+        'sheet_multiple'   => 'násobek formátu %s, obsazeno %s/%s',
         'pcs'              => 'ks',
         'company_id'       => 'IČO',
         'company_vat_id'   => 'DIČ',
@@ -697,9 +700,10 @@ final class PdfReport
         $pcs       = $this->e($this->t('pcs'));
         $dimStr    = $this->fmtNum($sheet->width) . ' × ' . $this->fmtNum($sheet->height) . ' mm';
         if ($sheet->upsizedFrom !== null) {
-            $dimStr .= ' (' . sprintf(
-                $this->t('sheet_upsized'),
-                $this->fmtNum($sheet->upsizedFrom['width']) . ' × ' . $this->fmtNum($sheet->upsizedFrom['height']) . ' mm'
+            $from    = $this->fmtNum($sheet->upsizedFrom['width']) . ' × ' . $this->fmtNum($sheet->upsizedFrom['height']) . ' mm';
+            $dimStr .= ' (' . ($sheet->upsizeMethod === UpsizeMethod::MULTIPLE
+                ? $this->t('sheet_multiple', $from, (string) count($sheet->nestedSheets ?? []), (string) $sheet->nestedCapacity)
+                : $this->t('sheet_upsized', $from)
             ) . ')';
         }
         $qty       = $count . ' ' . $pcs . ' (' . $sheetArea . ' m²)';
@@ -895,6 +899,19 @@ final class PdfReport
             $svg .= '</g>';
         }
 
+        // --- Nested sheets (UpsizeMethod::MULTIPLE): where the sheet is divided first ---
+        foreach (($sheet->nestedSheets ?? []) as $part) {
+            $svg .= sprintf(
+                '<rect x="%.3f" y="%.3f" width="%.3f" height="%.3f" '
+                . 'fill="none" stroke="%s" stroke-width="0.5" stroke-dasharray="4,2"/>',
+                round(($rotate ? $part['y'] : $part['x']) * $scale, 3),
+                round(($rotate ? $part['x'] : $part['y']) * $scale, 3),
+                round(($rotate ? $part['height'] : $part['width']) * $scale, 3),
+                round(($rotate ? $part['width'] : $part['height']) * $scale, 3),
+                self::COL_SHEET_STROKE
+            );
+        }
+
         // --- Usable remnants (advisory) ---
         // Fill stays the grey waste background; only a dashed outline +
         // dimension labels mark the rectangle. Same rotate mapping and manual
@@ -1041,9 +1058,12 @@ final class PdfReport
         );
         sort($pieces, SORT_STRING);
         sort($remnants, SORT_STRING);
-        // upsizedFrom keeps an enlarged sheet apart from one that merely has the
-        // same final layout – its header note would otherwise apply to both.
-        return json_encode([$sheet->width, $sheet->height, $sheet->upsizedFrom, $pieces, $remnants]);
+        // The upsize fields keep an enlarged sheet apart from one that merely
+        // has the same final layout – its header note would otherwise apply to both.
+        return json_encode([
+            $sheet->width, $sheet->height, $sheet->upsizedFrom, $sheet->upsizeMethod,
+            $sheet->nestedSheets, $sheet->nestedCapacity, $pieces, $remnants,
+        ]);
     }
 
     /**

@@ -14,7 +14,7 @@ use Multiplast\SheetNester\Internal\ResultBuilder;
 use Multiplast\SheetNester\Internal\Scorer;
 use Multiplast\SheetNester\Internal\SheetEliminator;
 use Multiplast\SheetNester\Internal\Solver;
-use Multiplast\SheetNester\Options\Remnants;
+use Multiplast\SheetNester\Options\UpsizeMethod;
 use Multiplast\SheetNester\Result\NestingResult;
 
 /**
@@ -31,9 +31,9 @@ use Multiplast\SheetNester\Result\NestingResult;
  * shrink sheet formats. Options\Search decides how many piece orderings are
  * tried (single FFD pass, deterministic portfolio, seeded random restarts),
  * Options\Objective how candidate plans compare. Options\Upsize may give the
- * last sheet (or every sheet) a larger stock format when that turns its waste
- * into a usable remnant; Options\Remnants only marks the usable leftovers of
- * the final plan.
+ * last sheet (or every sheet) a larger stock format – one that turns its
+ * waste into a usable remnant, or one that holds its format several times;
+ * Options\Remnants only marks the usable leftovers of the final plan.
  *
  * This class keeps no state between solve() calls and validates nothing
  * itself – NestingJob and the option objects do. The work is done by the
@@ -47,7 +47,7 @@ final class SheetNester
      *
      * Pipeline: expand + FFD-sort the pieces → Solver (one or many orderings of
      * pack → eliminate sheets → reduce formats → build result) → larger sheet
-     * formats for usable remnants (Options\Upsize) → order the sheets largest
+     * formats (Options\Upsize) → order the sheets largest
      * format first → mark usable remnants (Options\Remnants). The last three
      * steps run on the winning plan only, never inside the restart loop.
      */
@@ -75,21 +75,23 @@ final class SheetNester
         [$result, $sheets, $unplaced] = $solver->solve($allPieces);
 
         // Options\Upsize – a larger stock format for the last sheet (or every
-        // sheet) when that turns its waste into a remnant meeting the upsize
-        // threshold, which is independent of the marking threshold. The
-        // pieces stay where they are, but format, utilisation, cuts and stock
-        // usage change, so the result is rebuilt from the sheets. Runs before
-        // sortSheetsBySize: $sheets is still in the order the sheets were opened.
+        // sheet): one that turns the waste into a remnant meeting the remnant
+        // method's threshold (independent of the marking threshold), or one
+        // that holds the sheet's format several times. The layouts stay as
+        // they are, but formats, utilisation, cuts and stock usage change, so
+        // the result is rebuilt from the sheets. Runs before sortSheetsBySize:
+        // $sheets is still in the order the sheets were opened.
         $upsize = $job->upsize();
         if ($upsize->enabled()) {
-            $upsizeFinder = new RemnantFinder($material->kerf, $material->allowsRotation(), $upsize->minWidth, $upsize->minHeight, $upsize->formats);
-            $upsizer      = new FormatUpsizer(
-                $job->stock(),
+            $remnantMethod = $upsize->method(UpsizeMethod::REMNANT);
+            $upsizeFinder  = $remnantMethod === null ? null : new RemnantFinder(
                 $material->kerf,
-                $upsizeFinder,
-                $upsize->usesFormats() ? Remnants::DEFINED : Remnants::AUTO,
-                $upsize->scope
+                $material->allowsRotation(),
+                $remnantMethod->minWidth,
+                $remnantMethod->minHeight,
+                $remnantMethod->formats
             );
+            $upsizer = new FormatUpsizer($job->stock(), $material->kerf, $upsize, $upsizeFinder);
             if ($upsizer->upsize($sheets) > 0) {
                 $rebuilt = $builder->build($sheets, $unplaced);
                 $rebuilt->passes        = $result->passes;

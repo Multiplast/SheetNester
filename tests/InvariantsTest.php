@@ -11,8 +11,11 @@ use Multiplast\SheetNester\Options\Objective;
 use Multiplast\SheetNester\Options\Remnants;
 use Multiplast\SheetNester\Options\Search;
 use Multiplast\SheetNester\Options\Upsize;
+use Multiplast\SheetNester\Options\UpsizeMethod;
 use Multiplast\SheetNester\Result\Cut;
 use Multiplast\SheetNester\Result\NestingResult;
+use Multiplast\SheetNester\Result\Placement;
+use Multiplast\SheetNester\Result\SheetPlan;
 use Multiplast\SheetNester\Result\UnplacedPieces;
 use Multiplast\SheetNester\SheetNester;
 use PHPUnit\Framework\TestCase;
@@ -49,9 +52,92 @@ final class InvariantsTest extends TestCase
         }
     }
 
+    /**
+     * UpsizeMethod::MULTIPLE on stock where some formats hold others exactly
+     * or with a leftover, random method settings and order.
+     */
+    public function testRandomJobsWithMultiplesSatisfyInvariants(): void
+    {
+        $nestingRuns = 0;
+        for ($seed = 1; $seed <= self::INSTANCES; $seed++) {
+            $spec = self::randomMultipleSpec($seed);
+            foreach ([Search::singlePass(), new Search(restarts: 3, seed: $seed)] as $search) {
+                $label  = "multiples seed {$seed} / " . ($search->restarts === 0 ? 'single pass' : 'restarts');
+                $result = (new SheetNester())->solve(self::job($spec, Objective::minWaste(), $search));
+                $this->assertAll($result, $spec, Objective::MIN_WASTE, $label);
+                foreach ($result->sheets as $sheet) {
+                    if ($sheet->upsizeMethod === UpsizeMethod::MULTIPLE) {
+                        $nestingRuns++;
+                        break;
+                    }
+                }
+            }
+        }
+        // the generator must actually exercise the method
+        self::assertGreaterThanOrEqual(self::INSTANCES / 2, $nestingRuns, 'too few runs nested a sheet');
+    }
+
     // -------------------------------------------------------------------------
     // Job generation
     // -------------------------------------------------------------------------
+
+    /** @return array<string, mixed> */
+    private static function randomMultipleSpec(int $seed): array
+    {
+        mt_srand($seed);
+
+        // small formats, each with one or two larger ones that hold it a few
+        // times – exactly or with a leftover (a duplicate pools its stock)
+        $children = [[3500, 2100], [2000, 1050], [1900, 2100], [2000, 1200], [1500, 1000]];
+        $grids    = [[2, 1], [1, 2], [2, 2], [3, 1]];
+        $extras   = [0, 0, 150, 800];
+        shuffle($children);
+        $formats = [];
+        for ($i = 0, $n = mt_rand(1, 2); $i < $n; $i++) {
+            [$cw, $ch] = $children[$i];
+            $formats[] = [$cw, $ch, mt_rand(2, 8)];
+            for ($k = 0, $m = mt_rand(1, 2); $k < $m; $k++) {
+                [$kx, $ky] = $grids[mt_rand(0, 3)];
+                $formats[] = [$kx * $cw + $extras[mt_rand(0, 3)], $ky * $ch + $extras[mt_rand(0, 3)], mt_rand(1, 4)];
+            }
+        }
+
+        $pieces = [];
+        for ($i = 0, $n = mt_rand(2, 5); $i < $n; $i++) {
+            // small enough for the smaller formats, so those get opened
+            $pieces[] = [mt_rand(2, 36) * 50, mt_rand(2, 20) * 50, mt_rand(1, 5)];
+        }
+
+        $remnantFormats = [[1000, 500], [600, 600]];
+        $tolerances     = [0.0, 0.0, 200.0, 1000.0];
+        $maxWidth       = mt_rand(1, 3);
+        $multiple       = UpsizeMethod::multiple(
+            $maxWidth,
+            mt_rand($maxWidth === 1 ? 2 : 1, 3),
+            $tolerances[mt_rand(0, 3)],
+            $tolerances[mt_rand(0, 3)]
+        );
+        $methods = [
+            [$multiple],
+            [$multiple, UpsizeMethod::remnant(600.0, 300.0)],
+            [UpsizeMethod::remnant(formats: $remnantFormats), $multiple],
+        ][mt_rand(0, 2)];
+
+        return [
+            'formats'        => $formats,
+            'pieces'         => $pieces,
+            'kerf'           => [0.0, 3.0][mt_rand(0, 1)],
+            'grain'          => [Grain::NONE, Grain::ALONG_WIDTH][mt_rand(0, 1)],
+            'remnants'       => [
+                Remnants::none(),
+                Remnants::auto(200.0),
+                Remnants::atLeast(600.0, 300.0),
+                Remnants::defined($remnantFormats),
+            ][mt_rand(0, 3)],
+            'remnantFormats' => $remnantFormats,
+            'upsize'         => mt_rand(0, 1) === 0 ? Upsize::lastSheet(methods: $methods) : Upsize::allSheets(methods: $methods),
+        ];
+    }
 
     /** @return array<string, mixed> */
     private static function randomSpec(int $seed): array
@@ -189,7 +275,9 @@ final class InvariantsTest extends TestCase
                     $pair = "{$label}: pieces #{$i} and #{$j} on sheet {$sheet->index}";
 
                     self::assertFalse($overlapX > self::EPS && $overlapY > self::EPS, "{$pair} overlap");
-                    if ($kerf > 0) {
+                    // Layouts nested into one sheet (UpsizeMethod::MULTIPLE) may
+                    // touch: the kerf of the dividing cut is ignored on exact multiples.
+                    if ($kerf > 0 && self::partOf($sheet, $a) === self::partOf($sheet, $b)) {
                         // Neighbours must leave at least one kerf between them.
                         if ($overlapY > self::EPS) {
                             self::assertGreaterThanOrEqual($kerf - self::EPS, -$overlapX, "{$pair}: horizontal gap smaller than kerf");
@@ -444,11 +532,14 @@ final class InvariantsTest extends TestCase
 
     /**
      * Options\Upsize: an enlarged sheet records a smaller registered format
-     * that still holds all its pieces; lastSheet() enlarges at most one sheet,
-     * none() none. Whether the enlargement bought a remnant that meets the
-     * upsize threshold is pinned by FeaturesTest – the marked remnants follow
-     * an independent threshold. (Stock limits and geometry are covered by the
-     * other checks.)
+     * and a method of the option; lastSheet() enlarges at most one sheet,
+     * none() none. UpsizeMethod::REMNANT: the original format still holds all
+     * pieces. UpsizeMethod::MULTIPLE: the format holds the original one in the
+     * grid the method allows (per-direction limit and tolerance), the nested
+     * sheets lie apart inside it and every piece lies in one of them. Whether
+     * an enlargement bought a remnant that meets the threshold is pinned by
+     * FeaturesTest – the marked remnants follow an independent threshold.
+     * (Stock limits and geometry are covered by the other checks.)
      *
      * @param array<string, mixed> $spec
      */
@@ -465,6 +556,7 @@ final class InvariantsTest extends TestCase
         foreach ($result->sheets as $sheet) {
             $from = $sheet->upsizedFrom;
             if ($from === null) {
+                self::assertSame([null, null, null], [$sheet->upsizeMethod, $sheet->nestedSheets, $sheet->nestedCapacity], "{$label}: upsize fields on a sheet that was not enlarged");
                 continue;
             }
             $enlarged++;
@@ -475,11 +567,60 @@ final class InvariantsTest extends TestCase
             }
             self::assertArrayHasKey("{$from['width']}x{$from['height']}", $formats, "{$where}: not a registered format");
             self::assertLessThan($sheet->width * $sheet->height, $from['width'] * $from['height'], "{$where}: not larger");
+            $method = $option->method((string) $sheet->upsizeMethod);
+            self::assertNotNull($method, "{$where}: by '{$sheet->upsizeMethod}', not a method of the option");
+
+            if ($method->type === UpsizeMethod::REMNANT) {
+                self::assertSame([null, null], [$sheet->nestedSheets, $sheet->nestedCapacity], $where);
+                foreach ($sheet->pieces as $p) {
+                    self::assertLessThanOrEqual($from['width'] + self::EPS, $p->x + $p->width, "{$where}: piece did not fit the original format");
+                    self::assertLessThanOrEqual($from['height'] + self::EPS, $p->y + $p->height, "{$where}: piece did not fit the original format");
+                }
+                continue;
+            }
+
+            $columns = min($method->maxWidthMultiple, (int) floor(($sheet->width + self::EPS) / $from['width']));
+            $rows    = min($method->maxHeightMultiple, (int) floor(($sheet->height + self::EPS) / $from['height']));
+            self::assertSame($columns * $rows, $sheet->nestedCapacity, "{$where}: capacity");
+            self::assertGreaterThanOrEqual(2, $sheet->nestedCapacity, "{$where}: fewer than two parts");
+            self::assertLessThanOrEqual($method->widthTolerance + self::EPS, $sheet->width - $columns * $from['width'], "{$where}: leftover along the width");
+            self::assertLessThanOrEqual($method->heightTolerance + self::EPS, $sheet->height - $rows * $from['height'], "{$where}: leftover along the height");
+
+            $nested = $sheet->nestedSheets;
+            self::assertIsArray($nested, $where);
+            self::assertGreaterThanOrEqual(1, count($nested), $where);
+            self::assertLessThanOrEqual($sheet->nestedCapacity, count($nested), "{$where}: more nested sheets than parts");
+            foreach ($nested as $i => $r) {
+                self::assertSame([$from['width'], $from['height']], [$r['width'], $r['height']], "{$where}: nested sheet #{$i} not of the original format");
+                self::assertGreaterThanOrEqual(-self::EPS, min($r['x'], $r['y']), "{$where}: nested sheet #{$i} outside");
+                self::assertLessThanOrEqual($sheet->width + self::EPS, $r['x'] + $r['width'], "{$where}: nested sheet #{$i} outside");
+                self::assertLessThanOrEqual($sheet->height + self::EPS, $r['y'] + $r['height'], "{$where}: nested sheet #{$i} outside");
+                foreach ($nested as $j => $o) {
+                    if ($j > $i) {
+                        self::assertFalse(
+                            self::intersects($r['x'], $r['y'], $r['width'], $r['height'], $o['x'], $o['y'], $o['width'], $o['height']),
+                            "{$where}: nested sheets #{$i} and #{$j} overlap"
+                        );
+                    }
+                }
+            }
             foreach ($sheet->pieces as $p) {
-                self::assertLessThanOrEqual($from['width'] + self::EPS, $p->x + $p->width, "{$where}: piece did not fit the original format");
-                self::assertLessThanOrEqual($from['height'] + self::EPS, $p->y + $p->height, "{$where}: piece did not fit the original format");
+                self::assertGreaterThanOrEqual(0, self::partOf($sheet, $p), "{$where}: piece at ({$p->x},{$p->y}) outside every nested sheet");
             }
         }
+    }
+
+    /** Index of the nested sheet (UpsizeMethod::MULTIPLE) that holds the piece; -1 on a sheet without. */
+    private static function partOf(SheetPlan $sheet, Placement $p): int
+    {
+        foreach ($sheet->nestedSheets ?? [] as $i => $r) {
+            if ($p->x >= $r['x'] - self::EPS && $p->y >= $r['y'] - self::EPS
+                && $p->x + $p->width <= $r['x'] + $r['width'] + self::EPS
+                && $p->y + $p->height <= $r['y'] + $r['height'] + self::EPS) {
+                return $i;
+            }
+        }
+        return -1;
     }
 
     /**

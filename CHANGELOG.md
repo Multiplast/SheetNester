@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`Options\UpsizeMethod` – how the `Upsize` step enlarges a sheet, each
+  method with its own settings**, listed in the order they are tried:
+  `Upsize::lastSheet(methods: [UpsizeMethod::multiple(…), UpsizeMethod::remnant(2500, 1000)])`.
+  A sheet that one method changed is left alone by the later ones.
+- **`UpsizeMethod::multiple(maxWidthMultiple: 3, maxHeightMultiple: 3,
+  widthTolerance: 0, heightTolerance: 0)`** – the sheet is cut out of a stock
+  format that holds its format several times (3500 × 2100 → 7000 × 2100,
+  2000 × 1050 → 4000 × 2100), also a lone sheet; further parts take other
+  sheets of the same format. Limit and tolerance are set per direction, so
+  1900 × 2100 → 4000 × 2100 (`widthTolerance: 200`) or 2000 × 1200 →
+  4000 × 2100 (`heightTolerance: 900`) qualify as well. The parts are a kerf
+  apart where the leftover leaves room; on exact multiples the kerf of the
+  dividing cut is ignored. Only the finishing step changes – the nesting
+  itself does not.
+- `SheetPlan::$upsizeMethod`, `$nestedSheets`, `$nestedCapacity` (`toArray()`:
+  `upsize_method`, `nested_sheets`, `nested_capacity`); `fromArray()` reads a
+  2.2 array without them as enlarged for a remnant. The PDF notes a nested
+  sheet ("multiple of 3500 × 2100 mm, 1/2 parts used", CS "násobek formátu …,
+  obsazeno 1/2"), both renderers outline its parts. `Upsize::method(type)`.
+
+### Changed
+
+- `Upsize::lastSheet(minWidth, minHeight)` / `(formats: …)` is now the
+  shorthand for `methods: [UpsizeMethod::remnant(…)]` – same behaviour, same
+  properties (`minWidth`, `minHeight`, `formats` mirror the remnant method's
+  threshold, empty without one).
+
 ## 2.2.1 – 2026-11-11
 
 ### Changed

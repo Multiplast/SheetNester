@@ -143,6 +143,18 @@ final class SvgRenderer
             }
         }
 
+        // Nested sheets (UpsizeMethod::MULTIPLE) – where the sheet is divided first
+        foreach (($sheet->nestedSheets ?? []) as $part) {
+            $svg .= sprintf(
+                '<rect x="%d" y="%d" width="%d" height="%d" fill="none" '
+                . 'stroke="#555" stroke-width="1.5" stroke-dasharray="8,4"/>',
+                (int) round($part['x'] * $scale),
+                (int) round($part['y'] * $scale) + $padTop,
+                (int) round($part['width'] * $scale),
+                (int) round($part['height'] * $scale)
+            );
+        }
+
         // Usable remnants – grey like waste, dashed green outline + dimensions
         foreach (($sheet->remnants ?? []) as $r) {
             $x  = (int) round($r->x * $scale);

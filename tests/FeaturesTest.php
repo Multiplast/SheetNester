@@ -11,6 +11,7 @@ use Multiplast\SheetNester\Options\Objective;
 use Multiplast\SheetNester\Options\Remnants;
 use Multiplast\SheetNester\Options\Search;
 use Multiplast\SheetNester\Options\Upsize;
+use Multiplast\SheetNester\Options\UpsizeMethod;
 use Multiplast\SheetNester\Result\Cut;
 use Multiplast\SheetNester\Result\NestingResult;
 use Multiplast\SheetNester\Result\SheetPlan;
@@ -491,6 +492,204 @@ final class FeaturesTest extends TestCase
 
         self::assertSame(4000.0, $result->sheets[0]->width);
         self::assertSame(['width' => 2500.0, 'height' => 2100.0], $result->sheets[0]->upsizedFrom);
+        self::assertSame(UpsizeMethod::REMNANT, $result->sheets[0]->upsizeMethod);
         self::assertSame([8.4, 6.3, 2.1], [$result->materialM2, $result->remnantM2, $result->netMaterialM2]);
+    }
+
+    public function testUpsizeShorthandIsTheRemnantMethod(): void
+    {
+        $shorthand = self::solveUpsize(Upsize::lastSheet(2500, 1000), Remnants::atLeast(2500, 1000));
+        $methods   = self::solveUpsize(Upsize::lastSheet(methods: [UpsizeMethod::remnant(2500, 1000)]), Remnants::atLeast(2500, 1000));
+        self::assertSame(GoldenDataset::normalize($shorthand->toArray()), GoldenDataset::normalize($methods->toArray()));
+        self::assertNull($shorthand->sheets[0]->nestedSheets);
+        self::assertNull($shorthand->sheets[0]->nestedCapacity);
+    }
+
+    /** @return array<int, array{int, int, int}> [width, height, nested sheets] per sheet */
+    private static function nesting(NestingResult $result): array
+    {
+        return array_map(fn(SheetPlan $s) => [(int) $s->width, (int) $s->height, count($s->nestedSheets ?? [])], $result->sheets);
+    }
+
+    /** @return array<int, array{float, float}> */
+    private static function nestedOrigins(SheetPlan $sheet): array
+    {
+        return array_map(fn(array $r) => [$r['x'], $r['y']], $sheet->nestedSheets ?? []);
+    }
+
+    public function testMultipleNestsALoneSheetIntoAnExactMultiple(): void
+    {
+        // The 3000×2000 piece goes on a 3500×2100; the 7000×2100 holds that
+        // format twice, so the sheet is cut out of it and the other half stays.
+        $result = self::solveUpsize(
+            Upsize::lastSheet(methods: [UpsizeMethod::multiple()]),
+            Remnants::atLeast(2500, 1000),
+            [[3000, 2000, 1]],
+            [[3500, 2100, 5], [7000, 2100, 5]]
+        );
+
+        $sheet = $result->sheets[0];
+        self::assertSame([[7000, 2100, 1]], self::nesting($result));
+        self::assertSame(['width' => 3500.0, 'height' => 2100.0], $sheet->upsizedFrom);
+        self::assertSame(UpsizeMethod::MULTIPLE, $sheet->upsizeMethod);
+        self::assertSame([['x' => 0.0, 'y' => 0.0, 'width' => 3500.0, 'height' => 2100.0]], $sheet->nestedSheets);
+        self::assertSame(2, $sheet->nestedCapacity);
+        self::assertSame([[0.0, 0.0]], array_map(fn($p) => [$p->x, $p->y], $sheet->pieces));
+        // one 7000 taken from stock, the 3500 given back
+        self::assertSame([[7000.0, 1, 4]], array_map(fn($u) => [$u->width, $u->used, $u->remaining], $result->stockUsage));
+        // the empty part (with the strip next to the piece) is marked as a remnant
+        self::assertSame([[3000.0, 0.0, 4000.0, 2100.0]], self::remnantRects($sheet));
+
+        $sheetArray = $result->toArray()['sheets'][0];
+        self::assertSame(UpsizeMethod::MULTIPLE, $sheetArray['upsize_method']);
+        self::assertSame([['x' => 0.0, 'y' => 0.0, 'width' => 3500.0, 'height' => 2100.0]], $sheetArray['nested_sheets']);
+        self::assertSame(2, $sheetArray['nested_capacity']);
+        self::assertArrayNotHasKey('nested_sheets', $result->toLegacyArray()['sheets'][0]);
+
+        // no multiple in stock: nothing changes
+        $result = self::solveUpsize(Upsize::lastSheet(methods: [UpsizeMethod::multiple()]), Remnants::none(), [[3000, 2000, 1]], [[3500, 2100, 5], [6000, 2100, 5]]);
+        self::assertSame([[3500, 2100, 0]], self::nesting($result));
+        self::assertNull($result->sheets[0]->upsizeMethod);
+    }
+
+    public function testMultipleFillsThePartsWithSheetsOfTheSameFormat(): void
+    {
+        $pieces = [[3500, 2100, 3]];   // one full 3500×2100 sheet each
+        $stock  = [[3500, 2100, 5], [7000, 2100, 5]];
+
+        // lastSheet(): one parent – the last sheet and one other
+        $result = self::solveUpsize(Upsize::lastSheet(methods: [UpsizeMethod::multiple()]), Remnants::none(), $pieces, $stock);
+        self::assertSame([[7000, 2100, 2], [3500, 2100, 0]], self::nesting($result));
+        self::assertSame([[0.0, 0.0], [3500.0, 0.0]], self::nestedOrigins($result->sheets[0]));
+
+        // allSheets(): every sheet nested, the third in a parent of its own
+        $result = self::solveUpsize(Upsize::allSheets(methods: [UpsizeMethod::multiple()]), Remnants::none(), $pieces, $stock);
+        self::assertSame([[7000, 2100, 2], [7000, 2100, 1]], self::nesting($result));
+
+        // a triple leaves no part empty
+        $triple = array_merge($stock, [[10500, 2100, 5]]);
+        foreach ([Upsize::lastSheet(methods: [UpsizeMethod::multiple()]), Upsize::allSheets(methods: [UpsizeMethod::multiple()])] as $upsize) {
+            $result = self::solveUpsize($upsize, Remnants::none(), $pieces, $triple);
+            self::assertSame([[10500, 2100, 3]], self::nesting($result), $upsize->scope);
+            self::assertSame(3, $result->sheets[0]->nestedCapacity);
+        }
+        // … unless maxWidthMultiple forbids it
+        $result = self::solveUpsize(Upsize::lastSheet(methods: [UpsizeMethod::multiple(maxWidthMultiple: 2)]), Remnants::none(), $pieces, $triple);
+        self::assertSame([[7000, 2100, 2], [3500, 2100, 0]], self::nesting($result));
+
+        // parents are limited by stock
+        $result = self::solveUpsize(Upsize::allSheets(methods: [UpsizeMethod::multiple()]), Remnants::none(), $pieces, [[3500, 2100, 5], [7000, 2100, 1]]);
+        self::assertSame([[7000, 2100, 2], [3500, 2100, 0]], self::nesting($result));
+        self::assertSame(0, $result->stockUsage[0]->remaining);
+    }
+
+    public function testMultipleToleranceIsSetPerDirection(): void
+    {
+        $solve = static fn(UpsizeMethod $method, array $pieces, array $stock, float $kerf = 0.0): NestingResult
+            => self::solveUpsize(Upsize::allSheets(methods: [$method]), Remnants::none(), $pieces, $stock, Grain::ALONG_WIDTH, $kerf);
+
+        // 2 × 1900×2100 in a 4000×2100: 200 mm left along the width
+        $pieces = [[1900, 2100, 2]];
+        $stock  = [[1900, 2100, 5], [4000, 2100, 5]];
+        self::assertSame([[1900, 2100, 0], [1900, 2100, 0]], self::nesting($solve(UpsizeMethod::multiple(), $pieces, $stock)));
+        self::assertSame([[1900, 2100, 0], [1900, 2100, 0]], self::nesting($solve(UpsizeMethod::multiple(widthTolerance: 199), $pieces, $stock)));
+        self::assertSame([[1900, 2100, 0], [1900, 2100, 0]], self::nesting($solve(UpsizeMethod::multiple(heightTolerance: 200), $pieces, $stock)));
+        $result = $solve(UpsizeMethod::multiple(widthTolerance: 200), $pieces, $stock);
+        self::assertSame([[4000, 2100, 2]], self::nesting($result));
+        self::assertSame([[0.0, 0.0], [1900.0, 0.0]], self::nestedOrigins($result->sheets[0]));
+
+        // with a kerf the leftover leaves room for it: the parts are a kerf apart
+        // and the cut between them is one blade pass
+        $result = $solve(UpsizeMethod::multiple(widthTolerance: 200), $pieces, $stock, 4.0);
+        self::assertSame([[0.0, 0.0], [1904.0, 0.0]], self::nestedOrigins($result->sheets[0]));
+        self::assertSame([1904.0], array_map(fn($p) => $p->x, array_slice($result->sheets[0]->pieces, 1)));
+        self::assertSame([1900.0, 3804.0], array_map(fn(Cut $c) => $c->position, $result->sheets[0]->cuts->vertical));
+
+        // 2 × 2000×1200 in a 4000×2100: 900 mm left along the height
+        $pieces = [[2000, 1200, 2]];
+        $stock  = [[2000, 1200, 5], [4000, 2100, 5]];
+        self::assertSame([[2000, 1200, 0], [2000, 1200, 0]], self::nesting($solve(UpsizeMethod::multiple(heightTolerance: 899), $pieces, $stock)));
+        self::assertSame([[2000, 1200, 0], [2000, 1200, 0]], self::nesting($solve(UpsizeMethod::multiple(widthTolerance: 900), $pieces, $stock)));
+        $result = $solve(UpsizeMethod::multiple(heightTolerance: 900), $pieces, $stock);
+        self::assertSame([[4000, 2100, 2]], self::nesting($result));
+        self::assertSame(2, $result->sheets[0]->nestedCapacity);
+
+        // 4 × 2000×1050 in a 4000×2100: 2 × 2, an exact multiple
+        $pieces = [[2000, 1050, 4]];
+        $stock  = [[2000, 1050, 5], [4000, 2100, 5]];
+        $result = $solve(UpsizeMethod::multiple(), $pieces, $stock);
+        self::assertSame([[4000, 2100, 4]], self::nesting($result));
+        self::assertSame([[0.0, 0.0], [2000.0, 0.0], [0.0, 1050.0], [2000.0, 1050.0]], self::nestedOrigins($result->sheets[0]));
+        // not along the height: two parents with the lower half as the leftover
+        self::assertSame(array_fill(0, 4, [2000, 1050, 0]), self::nesting($solve(UpsizeMethod::multiple(maxHeightMultiple: 1), $pieces, $stock)));
+        $result = $solve(UpsizeMethod::multiple(maxHeightMultiple: 1, heightTolerance: 1050), $pieces, $stock);
+        self::assertSame([[4000, 2100, 2], [4000, 2100, 2]], self::nesting($result));
+        self::assertSame(2, $result->sheets[0]->nestedCapacity);
+
+        // 2 × 2000×1050 in a 3000×2100 leaves 1000 mm along the width
+        $pieces = [[2000, 1050, 2]];
+        $stock  = [[2000, 1050, 5], [3000, 2100, 5]];
+        self::assertSame([[2000, 1050, 0], [2000, 1050, 0]], self::nesting($solve(UpsizeMethod::multiple(widthTolerance: 200), $pieces, $stock)));
+        $result = $solve(UpsizeMethod::multiple(widthTolerance: 1000), $pieces, $stock);
+        self::assertSame([[3000, 2100, 2]], self::nesting($result));
+        self::assertSame([[0.0, 0.0], [0.0, 1050.0]], self::nestedOrigins($result->sheets[0]));
+    }
+
+    public function testMultiplePrefersTheParentWithTheLeastLeftover(): void
+    {
+        // both hold the 1900×2100 twice; the exact 3800 wins over the 4000
+        $result = self::solveUpsize(
+            Upsize::allSheets(methods: [UpsizeMethod::multiple(widthTolerance: 200)]),
+            Remnants::none(),
+            [[1900, 2100, 2]],
+            [[1900, 2100, 5], [4000, 2100, 5], [3800, 2100, 5]]
+        );
+        self::assertSame([[3800, 2100, 2]], self::nesting($result));
+    }
+
+    public function testMultipleOnAnExactMultipleIgnoresTheKerf(): void
+    {
+        // with a 4 mm kerf two 3500 layouts do not physically fit a 7000 –
+        // agreed: the kerf of the dividing cut is ignored
+        $result = self::solveUpsize(
+            Upsize::allSheets(methods: [UpsizeMethod::multiple()]),
+            Remnants::none(),
+            [[3500, 2100, 2]],
+            [[3500, 2100, 5], [7000, 2100, 5]],
+            Grain::ALONG_WIDTH,
+            4.0
+        );
+        $sheet = $result->sheets[0];
+        self::assertSame([[7000, 2100, 2]], self::nesting($result));
+        self::assertSame([0.0, 3500.0], array_map(fn($p) => $p->x, $sheet->pieces));
+        // one dividing cut, not two kerf-apart blade passes
+        self::assertSame([[3500.0, 2100.0]], array_map(fn(Cut $c) => [$c->position, $c->length], $sheet->cuts->vertical));
+        self::assertSame([], $sheet->cuts->horizontal);
+    }
+
+    public function testUpsizeMethodsAreTriedInOrder(): void
+    {
+        // the 3000×2100 piece goes on a 4000×2100: the 8000 holds that twice,
+        // the 6000 is the smallest format with a 2500×1000 remnant
+        $stock = [[6000, 2100, 5], [5000, 2100, 5], [4000, 2100, 5], [8000, 2100, 5]];
+
+        $result = self::solveUpsize(
+            Upsize::lastSheet(methods: [UpsizeMethod::multiple(), UpsizeMethod::remnant(2500, 1000)]),
+            Remnants::none(), [[3000, 2100, 1]], $stock
+        );
+        self::assertSame([8000.0, UpsizeMethod::MULTIPLE], [$result->sheets[0]->width, $result->sheets[0]->upsizeMethod]);
+
+        $result = self::solveUpsize(
+            Upsize::lastSheet(methods: [UpsizeMethod::remnant(2500, 1000), UpsizeMethod::multiple()]),
+            Remnants::none(), [[3000, 2100, 1]], $stock
+        );
+        self::assertSame([6000.0, UpsizeMethod::REMNANT], [$result->sheets[0]->width, $result->sheets[0]->upsizeMethod]);
+
+        // a method that does not apply hands over to the next one
+        $result = self::solveUpsize(
+            Upsize::lastSheet(methods: [UpsizeMethod::multiple(), UpsizeMethod::remnant(2500, 1000)]),
+            Remnants::none(), [[3000, 2100, 1]], [[6000, 2100, 5], [5000, 2100, 5], [4000, 2100, 5]]
+        );
+        self::assertSame([6000.0, UpsizeMethod::REMNANT], [$result->sheets[0]->width, $result->sheets[0]->upsizeMethod]);
     }
 }

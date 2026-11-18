@@ -20,6 +20,20 @@ class Sheet
     /** The format the sheet had before FormatUpsizer enlarged it; null otherwise. */
     public ?StockFormat $upsizedFrom = null;
 
+    /** Options\UpsizeMethod::REMNANT / MULTIPLE that enlarged the sheet; null when it was not enlarged. */
+    public ?string $upsizeMethod = null;
+
+    /**
+     * UpsizeMethod::MULTIPLE: where the sheets of the plan nested into this
+     * one lie, as [x, y, width, height] of the $upsizedFrom format, in order.
+     *
+     * @var array<int, array{float, float, float, float}>
+     */
+    public array $nestedSheets = [];
+
+    /** UpsizeMethod::MULTIPLE: how many sheets of the $upsizedFrom format the format holds. */
+    public int $nestedCapacity = 0;
+
     public function __construct(
         public int         $index,
         public StockFormat $format,

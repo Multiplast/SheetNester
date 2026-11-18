@@ -64,7 +64,15 @@ final class ResultBuilder
                 $this->cuts->sealMm($sheet)
             );
             if ($sheet->upsizedFrom !== null) {
-                $plan->upsizedFrom = ['width' => $sheet->upsizedFrom->width, 'height' => $sheet->upsizedFrom->height];
+                $plan->upsizedFrom  = ['width' => $sheet->upsizedFrom->width, 'height' => $sheet->upsizedFrom->height];
+                $plan->upsizeMethod = $sheet->upsizeMethod;
+            }
+            if ($sheet->nestedSheets !== []) {
+                $plan->nestedSheets = array_map(
+                    fn(array $r) => ['x' => $r[0], 'y' => $r[1], 'width' => $r[2], 'height' => $r[3]],
+                    $sheet->nestedSheets
+                );
+                $plan->nestedCapacity = $sheet->nestedCapacity;
             }
             $plans[] = $plan;
         }

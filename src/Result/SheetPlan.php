@@ -20,11 +20,32 @@ final class SheetPlan
 
     /**
      * The stock format the sheet had before Options\Upsize gave it a larger
-     * one for a usable remnant; null when the sheet was not enlarged.
+     * one; null when the sheet was not enlarged. With UpsizeMethod::MULTIPLE
+     * the format of the sheets nested into this one.
      *
      * @var array{width: float, height: float}|null
      */
     public ?array $upsizedFrom = null;
+
+    /**
+     * How the sheet got its larger format – Options\UpsizeMethod::REMNANT or
+     * MULTIPLE; null when the sheet was not enlarged.
+     */
+    public ?string $upsizeMethod = null;
+
+    /**
+     * UpsizeMethod::MULTIPLE: where the sheets of the plan nested into this
+     * one lie (each of the upsizedFrom format), in order; null otherwise.
+     *
+     * @var array<int, array{x: float, y: float, width: float, height: float}>|null
+     */
+    public ?array $nestedSheets = null;
+
+    /**
+     * UpsizeMethod::MULTIPLE: how many sheets of the upsizedFrom format the
+     * format holds (count($nestedSheets) of them are used); null otherwise.
+     */
+    public ?int $nestedCapacity = null;
 
     /**
      * @param Placement[] $pieces
@@ -57,7 +78,10 @@ final class SheetPlan
                 ? null
                 : array_map(fn(Remnant $r) => $r->toArray(), $this->remnants),
             'remnant_m2' => $this->remnantM2,
-            'upsized_from' => $this->upsizedFrom,
+            'upsized_from'    => $this->upsizedFrom,
+            'upsize_method'   => $this->upsizeMethod,
+            'nested_sheets'   => $this->nestedSheets,
+            'nested_capacity' => $this->nestedCapacity,
         ];
     }
 

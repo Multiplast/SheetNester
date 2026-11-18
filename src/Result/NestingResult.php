@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Multiplast\SheetNester\Result;
 
 use Multiplast\SheetNester\Options\Objective;
+use Multiplast\SheetNester\Options\UpsizeMethod;
 
 /**
  * Complete outcome of a nesting run: the sheet plans (largest format first),
@@ -107,7 +108,15 @@ final class NestingResult
                 $plan->remnantM2 = isset($s['remnant_m2']) ? (float) $s['remnant_m2'] : null;
             }
             if (isset($s['upsized_from'])) {
-                $plan->upsizedFrom = ['width' => (float) $s['upsized_from']['width'], 'height' => (float) $s['upsized_from']['height']];
+                $plan->upsizedFrom  = ['width' => (float) $s['upsized_from']['width'], 'height' => (float) $s['upsized_from']['height']];
+                // 2.2 arrays have no method: everything enlarged then was for a remnant
+                $plan->upsizeMethod = isset($s['upsize_method']) ? (string) $s['upsize_method'] : UpsizeMethod::REMNANT;
+            }
+            if (isset($s['nested_sheets'])) {
+                $plan->nestedSheets = array_map(static fn(array $r): array => [
+                    'x' => (float) $r['x'], 'y' => (float) $r['y'], 'width' => (float) $r['width'], 'height' => (float) $r['height'],
+                ], $s['nested_sheets']);
+                $plan->nestedCapacity = isset($s['nested_capacity']) ? (int) $s['nested_capacity'] : count($plan->nestedSheets);
             }
             $sheets[] = $plan;
         }

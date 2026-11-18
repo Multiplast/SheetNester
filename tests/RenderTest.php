@@ -10,6 +10,7 @@ use Multiplast\SheetNester\Options\Material;
 use Multiplast\SheetNester\Options\Remnants;
 use Multiplast\SheetNester\Options\Search;
 use Multiplast\SheetNester\Options\Upsize;
+use Multiplast\SheetNester\Options\UpsizeMethod;
 use Multiplast\SheetNester\Render\PdfReport;
 use Multiplast\SheetNester\Render\SvgRenderer;
 use Multiplast\SheetNester\Result\NestingResult;
@@ -173,6 +174,51 @@ final class RenderTest extends TestCase
         self::assertArrayNotHasKey('upsized_from', $legacy['sheets'][0]);
         self::assertArrayNotHasKey('net_material_m2', $legacy);
         self::assertNull(NestingResult::fromLegacyArray($legacy)->sheets[0]->upsizedFrom);
+    }
+
+    public function testReportsAndArraysCarryTheNestedSheets(): void
+    {
+        $job = NestingJob::create(
+            new Material(0, Grain::ALONG_WIDTH),
+            search:   Search::singlePass(),
+            remnants: Remnants::atLeast(2500, 1000),
+            upsize:   Upsize::lastSheet(methods: [UpsizeMethod::multiple()]),
+        )
+            ->addStock(3500, 2100, 5)
+            ->addStock(7000, 2100, 5)
+            ->addPiece(3000, 2000);
+        $result = (new SheetNester())->solve($job);
+        self::assertSame(UpsizeMethod::MULTIPLE, $result->sheets[0]->upsizeMethod);
+
+        $html = (new PdfReport($result))->html();
+        self::assertStringContainsString('7000 × 2100 mm (multiple of 3500 × 2100 mm, 1/2 parts used)', $html);
+        self::assertStringNotContainsString('for a usable remnant', $html);
+        $czech = (new PdfReport($result, [], PdfReport::LABELS_CS))->html();
+        self::assertStringContainsString('násobek formátu 3500 × 2100 mm, obsazeno 1/2', $czech);
+
+        // the part is outlined in both diagrams
+        self::assertSame(1, substr_count((new SvgRenderer())->render($result->sheets[0]), 'stroke-dasharray="8,4"'));
+        self::assertSame(1, substr_count($html, 'stroke-dasharray="4,2"'));
+
+        $array = $result->toArray();
+        self::assertSame($array, NestingResult::fromArray($array)->toArray());
+        $decoded = NestingResult::fromArray(json_decode(json_encode($array, JSON_THROW_ON_ERROR), true));
+        self::assertSame($array, $decoded->toArray());
+
+        // a 2.2 array has no method: what was enlarged then was enlarged for a remnant
+        $old = self::sampleUpsized()->toArray();
+        unset($old['sheets'][0]['upsize_method'], $old['sheets'][0]['nested_sheets'], $old['sheets'][0]['nested_capacity']);
+        $plan = NestingResult::fromArray($old)->sheets[0];
+        self::assertSame([UpsizeMethod::REMNANT, null, null], [$plan->upsizeMethod, $plan->nestedSheets, $plan->nestedCapacity]);
+    }
+
+    private static function sampleUpsized(): NestingResult
+    {
+        $job = NestingJob::create(new Material(0, Grain::ALONG_WIDTH), search: Search::singlePass(), upsize: Upsize::lastSheet(2500, 1000))
+            ->addStock(6000, 2100, 5)
+            ->addStock(4000, 2100, 5)
+            ->addPiece(3000, 2100);
+        return (new SheetNester())->solve($job);
     }
 
     public function testPdfCanGroupIdenticalSheets(): void
